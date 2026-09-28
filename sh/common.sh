@@ -204,9 +204,20 @@ _ts() {
   if clock_sane; then date '+%Y-%m-%d %H:%M:%S' 2>/dev/null
   else echo "boot+$(mono_now)s"; fi
 }
-log_info()  { echo "$(_ts) [INFO] $*"  >> "$LOG" 2>/dev/null; }
-log_warn()  { echo "$(_ts) [WARN] $*"  >> "$LOG" 2>/dev/null; }
-log_error() { echo "$(_ts) [ERROR] $*" >> "$LOG" 2>/dev/null; }
+# The phone is shutting down or rebooting. Android sets
+# sys.shutdown.requested when a normal shutdown starts and sys.powerctl at
+# its very end (a plain "reboot" command sets only sys.powerctl).
+shutting_down() {
+  [ -n "$(getprop sys.shutdown.requested 2>/dev/null)" ] ||
+    [ -n "$(getprop sys.powerctl 2>/dev/null)" ]
+}
+# The watchdog sets QUIET_ON_SHUTDOWN=1: whatever it was doing when the
+# shutdown started fails (the system is being taken apart under it), and
+# those failures are not worth a red line in the log.
+_log_quiet() { [ "${QUIET_ON_SHUTDOWN:-0}" = "1" ] && shutting_down; }
+log_info()  { _log_quiet && return 0; echo "$(_ts) [INFO] $*"  >> "$LOG" 2>/dev/null; }
+log_warn()  { _log_quiet && return 0; echo "$(_ts) [WARN] $*"  >> "$LOG" 2>/dev/null; }
+log_error() { _log_quiet && return 0; echo "$(_ts) [ERROR] $*" >> "$LOG" 2>/dev/null; }
 bootlog()   { echo "$(_ts) $*" >> "$BOOTLOG" 2>/dev/null; }
 
 rotate_log() {

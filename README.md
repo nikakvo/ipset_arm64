@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/ARM64-only-00d4ff?style=flat-square" />
-  <img src="https://img.shields.io/badge/v7.24--r11-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/v7.24--r12-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/SukiSU%20%2F%20KernelSU%20%2F%20APatch%20%2F%20Magisk-compatible-4affb4?style=flat-square" />
   <img src="https://img.shields.io/badge/IPv4%20%2B%20IPv6-filtered-00d4ff?style=flat-square" />
 </p>

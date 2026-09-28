@@ -2,6 +2,13 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r12
+
+Quiet reboots.
+
+* **No more red lines in the log after a reboot.** If the watchdog's 10-second check happened to start while the phone was already shutting down, it tried to reload the lists and rules while Android was taking the system apart, and logged a burst of errors (*"could not build ipsa_lan4"*, *"firewall rules refused"*). They were harmless — the next boot always came up protected — but looked like a failure. The watchdog now also notices a shutdown at its very start (`sys.shutdown.requested`, not only `sys.powerctl` at its end), checks again before and after applying, and stops without logging errors that only came from the shutdown
+* The module description in the root manager no longer shows *"Not enforcing"* after such a reboot until the new boot applies the rules
+
 ## v7.24-r11
 
 Friendlier to VPN apps.

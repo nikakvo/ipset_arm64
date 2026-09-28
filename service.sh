@@ -222,18 +222,28 @@ write_health
 update_module_status
 
 # ── Loop ─────────────────────────────────────────────────────────────────────
+# The phone is shutting down: stop quietly. (Sets, rules and files of the
+# module vanish under a running watchdog then, and every check would fail.)
+# Checked at the start of each tick and again around an apply, because a
+# tick that began just before the shutdown would otherwise carry on.
+# shellcheck disable=SC2034  # read by the log functions in sh/common.sh
+QUIET_ON_SHUTDOWN=1
+stop_for_shutdown() {
+  [ "$1" = "locked" ] && lock_release
+  # shellcheck disable=SC2034
+  QUIET_ON_SHUTDOWN=0
+  log_info "watchdog: system shutting down, stopping"
+  exit 0
+}
+
 _ticks=0
 while true; do
   sleep "$TICK"
   NOW=$(mono_now)
-  # The phone is shutting down: stop quietly. (Files of the module vanish
-  # under a running watchdog then, and every check would log an error.)
-  if [ -n "$(getprop sys.powerctl 2>/dev/null)" ]; then
-    log_info "watchdog: system shutting down, stopping"
-    exit 0
-  fi
+  shutting_down && stop_for_shutdown
   if lock_try; then
     _chg=$(what_changed)
+    [ -n "$_chg" ] && shutting_down && stop_for_shutdown locked
     if [ -n "$_chg" ]; then
       _kind=${_chg%% *}; _rest=${_chg#* }
       _fam=${_rest%% *}; _why=${_rest#* }
@@ -247,6 +257,9 @@ while true; do
         log_info "watchdog: $_why - applying"
       fi
       rules_apply $_fam
+      # Do not publish a failed state (module description, health) that
+      # only came from the shutdown.
+      shutting_down && stop_for_shutdown locked
       load_settings
       after_apply
     fi
