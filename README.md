@@ -137,33 +137,35 @@ All 16 set types are supported (`hash:net`, `hash:ip,port`, `hash:net,iface`, `b
 ## With DNSCrypt, a VPN, or another firewall
 
 * **[DNSCrypt](https://github.com/nikakvo/dnscrypt-proxy-android-arm64-only) module**: its bootstrap resolvers, connectivity probe and pinned servers are read from its `dnscrypt-proxy.toml` and never blocked, so a list can never take DNS away from the phone. Switching resolvers in the DNSCrypt WebUI is followed within a minute.
-* **VPN**: apps' traffic passes the rules with its real destination before it enters the tunnel, so blocking keeps working with a VPN on. Hotspot devices sent through the VPN by [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) are filtered before they enter the tunnel too.
+* **VPN**: apps' traffic passes the rules with its real destination before it enters the tunnel, so blocking keeps working with a VPN on. Hotspot devices sent through the VPN by [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) are filtered before they enter the tunnel too. The same holds for [WG Shield Arm64](https://github.com/nikakvo/wg-shield-arm64) (kernel WireGuard without an app) — just make sure a tunnel server is never in your lists (**Check** its address), or the tunnel cannot connect.
 * **AFWall+ and others**: the module only adds its own chains and three links; other firewalls' rules are not changed.
 
 ## The networking set
 
-Three modules built to work together — each one works on its own, and each adds a layer for the phone **and everyone on its hotspot**:
+Four modules built to work together — each one works on its own, and each adds a layer for the phone **and everyone on its hotspot**:
 
 | | Module | What it adds |
 |---|---|---|
 | 🟢 | [DNSCrypt Proxy Arm64](https://github.com/nikakvo/dnscrypt-proxy-android-arm64-only) | Encrypted DNS with ad / tracker blocklists — for the phone and for hotspot devices, even those with their own DNS server set |
 | 🔵 | **ipset-arm64** *(this module)* | IP blocklists (FireHOL, Spamhaus) in the kernel — stops apps and devices that connect to hard-coded IP addresses, which DNS blocking cannot see |
 | 🟡 | [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) | Sends hotspot, USB and Bluetooth devices through the phone's VPN, with kill switch — Android's VPN only covers the phone's own apps |
+| 🩵 | [WG Shield Arm64](https://github.com/nikakvo/wg-shield-arm64) | Always-on kernel WireGuard for the phone, with kill switch — no app |
 
 ```
 device on your hotspot  /  app on the phone
    │  DNS      → DNSCrypt Proxy   encrypted, filtered
    │  traffic  → ipset            listed networks dropped
-   ▼  hotspot  → VPN Hotspot      into your VPN (kill switch)
+   │  hotspot  → VPN Hotspot      into the tunnel (kill switch)
+   ▼  tunnel   → WG Shield        kernel WireGuard, always on — or any VPN app
 internet
 ```
 
 - **Order is fixed and checked** by each module: DNSCrypt's hotspot filter → ipset → VPN Hotspot → Android. Nothing reaches the VPN around the two filters
-- **With all three**, hotspot devices get your filtered DNS (DNSCrypt's own queries travel inside the VPN), your IP blocklists and your VPN exit — on Wi-Fi and on mobile data
-- **VPN apps stay happy** — none of the three holds Android's firewall lock while checking, so WireGuard (`wg-quick`) and other VPN apps connect and disconnect without errors
+- **With the whole set**, hotspot devices get your filtered DNS (DNSCrypt's own queries travel inside the tunnel), your IP blocklists and your VPN exit — on Wi-Fi and on mobile data
+- **VPN apps stay happy** — none of the modules holds Android's firewall lock while checking, so WireGuard (`wg-quick`) and other VPN apps connect and disconnect without errors
 - **On its own** it blocks the listed networks for the phone and hotspot devices; DNS and routing stay as they are.
 
-**Tested together** on a Poco F6 Pro (vermeer), Xiaomi.eu ROM (HyperOS 3, Android 16), kernel [GKI_Kernel_SukiSU](https://github.com/nikakvo/GKI_Kernel_SukiSU) (SukiSU Ultra), with WireGuard (kernel backend) and v2rayNG; hotspot devices: a Windows laptop and a stock Android phone. Other devices should work but are not tested — reports welcome.
+**Tested together** on a Poco F6 Pro (vermeer), Xiaomi.eu ROM (HyperOS 3, Android 16), kernel [GKI_Kernel_SukiSU](https://github.com/nikakvo/GKI_Kernel_SukiSU) (SukiSU Ultra), with WG Shield, WireGuard (kernel backend) and v2rayNG; hotspot devices: a Windows laptop and a stock Android phone. Other devices should work but are not tested — reports welcome.
 
 ## Uninstall
 
