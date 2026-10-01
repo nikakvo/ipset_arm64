@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party parts are not covered by this license:
-
-* The ipset binary — built unmodified from ipset 7.24
-  (https://git.netfilter.org/ipset), GPL-2.0, statically linked with
-  libmnl (https://git.netfilter.org/libmnl), LGPL-2.1. The binary as a whole
-  is distributed under GPL-2.0; its sources are at the links above.
-* Downloaded blocklists — FireHOL (https://iplists.firehol.org) and
-  Spamhaus DROP (https://www.spamhaus.org), under their own terms.
