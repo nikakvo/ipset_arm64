@@ -188,3 +188,7 @@ Remove the module in your root manager. Its chains, links and sets, your advance
 ## Disclaimer
 
 Provided as-is, for personal use. Not affiliated with the netfilter project, FireHOL or Spamhaus. Blocklists can contain false positives; if something stops working, **Tools → Check an address** tells you whether a list is the cause.
+
+## License
+
+The module's scripts and WebUI are [MIT](LICENSE). The bundled binary and the blocklists keep their own licenses — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
