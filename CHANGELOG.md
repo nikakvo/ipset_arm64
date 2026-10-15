@@ -2,6 +2,15 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r13
+
+**Module**
+- New card banner in the root manager (SukiSU-Ultra and other managers that support module banners).
+
+No functional changes - the FireHOL and Spamhaus blocklists, the firewall rules and the WebUI work exactly as in the previous release. Updating is optional.
+
+---
+
 ## v7.24-r12
 
 Quiet reboots.
