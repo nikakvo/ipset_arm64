@@ -383,18 +383,18 @@
 <!-- 14 -->
 <div class="sec-title" id="cli">14 · command line</div>
 <div class="box">
-  <p>Everything the WebUI does is also available from a root shell (Termux: prefix with <code>su -c</code>). Output is <code>key=value</code>; every command that changes something prints <code>ok=1</code>, or <code>ok=0</code> with an <code>error=</code>.</p>
+  <p>Everything the WebUI does is also available from Termux. Output is <code>key=value</code>; every command that changes something prints <code>ok=1</code>, or <code>ok=0</code> with an <code>error=</code>.</p>
 <pre><span class="cm"># the module's own protection</span>
-sh /data/adb/modules/ipset_arm64/ctl.sh status
-sh /data/adb/modules/ipset_arm64/ctl.sh check 103.117.84.5
-sh /data/adb/modules/ipset_arm64/ctl.sh probe 103.117.84.5 443
-sh /data/adb/modules/ipset_arm64/ctl.sh block add 203.0.113.0/24
-sh /data/adb/modules/ipset_arm64/ctl.sh allow add 198.51.100.7
-sh /data/adb/modules/ipset_arm64/ctl.sh sources
-sh /data/adb/modules/ipset_arm64/ctl.sh sources enable firehol-level2
-sh /data/adb/modules/ipset_arm64/ctl.sh sources dir firehol-level4 in
-sh /data/adb/modules/ipset_arm64/ctl.sh update
-sh /data/adb/modules/ipset_arm64/ctl.sh pause 15</pre>
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh status'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh check 103.117.84.5'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh probe 103.117.84.5 443'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh block add 203.0.113.0/24'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh allow add 198.51.100.7'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources enable firehol-level2'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources dir firehol-level4 in'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh update'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh pause 15'</pre>
   <div class="tw"><table>
     <tr><th>ctl.sh</th><th></th></tr>
     <tr><td>poll · status</td><td>quick state · full check</td></tr>
@@ -408,11 +408,11 @@ sh /data/adb/modules/ipset_arm64/ctl.sh pause 15</pre>
     <tr><td>apply · log [n] · log-clear</td><td>re-apply · show / clear the log</td></tr>
   </table></div>
   <p>The advanced sets and rules have their own tool, compatible with earlier versions:</p>
-<pre>sh /data/adb/modules/ipset_arm64/ipctl.sh create myset hash:net
-sh /data/adb/modules/ipset_arm64/ipctl.sh add myset 203.0.113.0/24
-sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst REJECT
-sh /data/adb/modules/ipset_arm64/ipctl.sh rules
-sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTPUT dst REJECT</pre>
+<pre>su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh create myset hash:net'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh add myset 203.0.113.0/24'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst REJECT'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rules'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTPUT dst REJECT'</pre>
 </div>
 
 <!-- 15 -->
@@ -441,7 +441,7 @@ sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTPUT dst REJECT</pre>
   <h3>Watchdog stopped</h3>
   <p>Reboot. If it stays stopped, the first lines of <strong>Log → Last boot</strong> say what is missing (usually the ipset binary or <code>iptables-restore</code>).</p>
   <h3>Everything off, right now</h3>
-  <p>Dashboard → switch <strong>Protection</strong> off, or from a shell: <code>sh /data/adb/modules/ipset_arm64/ctl.sh disable</code>. Disabling the module in the root manager and rebooting also removes all its rules.</p>
+  <p>Dashboard → switch <strong>Protection</strong> off, or from Termux: <code>su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh disable'</code>. Disabling the module in the root manager and rebooting also removes all its rules.</p>
 </div>
 
 <!-- 17 -->

@@ -4,7 +4,7 @@
 # is controlled with ctl.sh.)
 #
 # Usage (as root):
-#   sh /data/adb/modules/ipset_arm64/ipctl.sh <command> [args]
+#   su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh <command> [args]'
 #
 # Commands:
 #   status                                   - capability check and overview

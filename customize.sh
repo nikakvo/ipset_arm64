@@ -81,4 +81,4 @@ fi
 log_info "installed $(sed -n 's/^version=//p' "$MODPATH/module.prop")"
 
 ui_print "- Reboot, then open the WebUI: choose your lists and press Update"
-ui_print "  Command line: su -c sh /data/adb/modules/$MODULE_ID/ctl.sh status"
+ui_print "  Command line: su -c '/system/bin/sh /data/adb/modules/$MODULE_ID/ctl.sh status'"

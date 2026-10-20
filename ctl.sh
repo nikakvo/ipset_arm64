@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # ctl.sh - command-line control for ipset-arm64.
 #
-#   su -c sh /data/adb/modules/ipset_arm64/ctl.sh status
+#   su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh status'
 #
 # Output is key=value, one per line. ok=1 / ok=0 (+ error=...) on every
 # command that changes something. Exit code 0 = ok, 1 = failed, 2 = usage.
