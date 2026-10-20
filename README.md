@@ -1,6 +1,10 @@
 <p align="center">
+  <img src="ipset-arm64.png" alt="ipset-arm64" width="640">
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/ARM64-only-00d4ff?style=flat-square" />
-  <img src="https://img.shields.io/badge/v7.24--r12-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/v7.24--r13-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/SukiSU%20%2F%20KernelSU%20%2F%20APatch%20%2F%20Magisk-compatible-4affb4?style=flat-square" />
   <img src="https://img.shields.io/badge/IPv4%20%2B%20IPv6-filtered-00d4ff?style=flat-square" />
 </p>
@@ -9,7 +13,7 @@
 
 IP-level blocklists for Android. The module loads lists of known-bad networks — botnets, malware control servers, hijacked address space — into the kernel with **ipset**, and blocks traffic to and from them with **iptables** and **ip6tables**. Everything is controlled from a WebUI in your root manager.
 
-DNS blocking stops a name from being looked up; it cannot stop an app that connects to a **hard-coded IP address**. This module can. It is part of a set with [DNSCrypt Proxy Arm64](https://github.com/nikakvo/dnscrypt-proxy-android-arm64-only) and [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) — see [The networking set](#the-networking-set).
+DNS blocking stops a name from being looked up; it cannot stop an app that connects to a **hard-coded IP address**. This module can. It is part of a set with [DNSCrypt Proxy Arm64](https://github.com/nikakvo/dnscrypt-proxy-android-arm64-only), [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) and [WG Shield Arm64](https://github.com/nikakvo/wg-shield-arm64) - see [The networking set](#the-networking-set).
 
 <img width="300" alt="ipset-arm64 WebUI" src="https://raw.githubusercontent.com/nikakvo/ipset-arm64/main/ipset-arm64.jpg" />
 
@@ -106,30 +110,30 @@ Updating from an earlier version keeps your settings, advanced sets and rules. T
 
 ## Command line
 
-Everything the WebUI does, from a root shell (`su -c` in Termux). Output is `key=value`.
+Everything the WebUI does, from Termux. Output is `key=value`.
 
 ```sh
-sh /data/adb/modules/ipset_arm64/ctl.sh status
-sh /data/adb/modules/ipset_arm64/ctl.sh sources                       # the lists
-sh /data/adb/modules/ipset_arm64/ctl.sh sources enable firehol-level2
-sh /data/adb/modules/ipset_arm64/ctl.sh sources dir firehol-level4 in # out | in | both
-sh /data/adb/modules/ipset_arm64/ctl.sh update                        # download now
-sh /data/adb/modules/ipset_arm64/ctl.sh check 103.117.84.5
-sh /data/adb/modules/ipset_arm64/ctl.sh probe 103.117.84.5 443        # real connection test
-sh /data/adb/modules/ipset_arm64/ctl.sh block add 203.0.113.0/24
-sh /data/adb/modules/ipset_arm64/ctl.sh allow add 198.51.100.7
-sh /data/adb/modules/ipset_arm64/ctl.sh pause 15
-sh /data/adb/modules/ipset_arm64/ctl.sh set AUTO_UPDATE daily
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh status'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources'   # the lists
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources enable firehol-level2'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources dir firehol-level4 in'   # out | in | both
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh update'   # download now
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh check 103.117.84.5'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh probe 103.117.84.5 443'   # real connection test
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh block add 203.0.113.0/24'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh allow add 198.51.100.7'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh pause 15'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh set AUTO_UPDATE daily'
 ```
 
 Advanced sets and rules keep their own tool, compatible with earlier versions:
 
 ```sh
-sh /data/adb/modules/ipset_arm64/ipctl.sh create myset hash:net
-sh /data/adb/modules/ipset_arm64/ipctl.sh add myset 203.0.113.0/24
-sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst REJECT
-sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst DROP 10123   # one app (uid)
-sh /data/adb/modules/ipset_arm64/ipctl.sh types                                 # all set types
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh create myset hash:net'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh add myset 203.0.113.0/24'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst REJECT'
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst DROP 10123'   # one app (uid)
+su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh types'   # all set types
 ```
 
 All 16 set types are supported (`hash:net`, `hash:ip,port`, `hash:net,iface`, `bitmap:port`, `list:set`…); which ones work depends on the kernel. Sets named `ipsa_*` belong to the module. Sets created by other apps are never touched.
