@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="ipset-arm64.png" alt="ipset-arm64" width="640">
-</p>
+<p align="center"><img src="ipset-arm64.png" alt="ipset-arm64" width="640"></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/ARM64-only-00d4ff?style=flat-square" />
