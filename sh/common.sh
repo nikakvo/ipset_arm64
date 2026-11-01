@@ -360,3 +360,34 @@ for _lib in sets sources dnscrypt rules; do
   fi
 done
 unset _lib
+
+# LAN Cloak Arm64 (same set): read only, for the System tab. It hides the
+# phone on the Wi-Fi network (DHCP, mDNS / SSDP / LLMNR) with its own chains
+# and never touches this module's sets or chains; nothing here depends on it.
+LANC_MODDIR="/data/adb/modules/lan-cloak"
+LANC_STATUS="/data/adb/lan-cloak/state/status"
+lanc_keys() {
+  if [ ! -f "$LANC_MODDIR/module.prop" ]; then _lc_m=absent
+  elif [ -f "$LANC_MODDIR/disable" ] || [ -f "$LANC_MODDIR/remove" ]; then _lc_m=disabled
+  else _lc_m=enabled; fi
+  _lc_s=""; _lc_r=""; _lc_d=""; _lc_a=""; _lc_w=""; _lc_u=""
+  if [ "$_lc_m" != absent ] && [ -f "$LANC_STATUS" ]; then
+    while IFS='=' read -r _lc_k _lc_v; do
+      case "$_lc_k" in
+        state) _lc_s=$_lc_v ;; reason) _lc_r=$_lc_v ;; dhcp) _lc_d=$_lc_v ;;
+        announce) _lc_a=$_lc_v ;; wifi) _lc_w=$_lc_v ;; updated) _lc_u=$_lc_v ;;
+      esac
+    done 2>/dev/null < "$LANC_STATUS"
+  fi
+  echo "lancloak=$_lc_m"
+  echo "lancloak_state=$_lc_s"
+  echo "lancloak_reason=$_lc_r"
+  echo "lancloak_dhcp=$_lc_d"
+  echo "lancloak_announce=$_lc_a"
+  echo "lancloak_wifi=$_lc_w"
+  case "$_lc_u" in
+    ''|*[!0-9]*) echo "lancloak_age=" ;;
+    *) echo "lancloak_age=$(( $(date +%s) - _lc_u ))" ;;
+  esac
+  unset _lc_m _lc_s _lc_r _lc_d _lc_a _lc_w _lc_u _lc_k _lc_v
+}

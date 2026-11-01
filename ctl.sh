@@ -261,6 +261,7 @@ cmd_status() {
   else echo "dnscrypt=absent"; fi
   echo "dnscrypt_setting=$DNSCRYPT_ALLOW"
   echo "dnscrypt_addrs=$(( $(set_count ipsa_dnsc4) + $(set_count ipsa_dnsc6) ))"
+  lanc_keys
   echo "adv_sets=$(own_list | grep -c .)"
   echo "adv_rules=$(grep -c . "$RULES" 2>/dev/null || echo 0)"
   _s_sk=$(cat "$RUN"/adv_skipped.* 2>/dev/null | sort -u | grep -c .)

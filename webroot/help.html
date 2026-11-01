@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>ipset-arm64 — Help</title>
+  <title>ipset-arm64 - Help</title>
   <!-- Loaded without blocking: the page never waits for the network. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" media="print" onload="this.media='all'">
   <style>
@@ -117,12 +117,12 @@
   <a href="#start">2 · Quick start</a>
   <a href="#how">3 · How blocking works</a>
   <a href="#dash">4 · Dashboard</a>
-  <a href="#lists">5 · Lists — the blocklists</a>
-  <a href="#dir">6 · Lists — outgoing, incoming, both</a>
-  <a href="#update">7 · Lists — updating</a>
-  <a href="#check">8 · Tools — check &amp; test an address</a>
-  <a href="#own">9 · Tools — your blocklist &amp; allowlist</a>
-  <a href="#adv">10 · Tools — advanced sets &amp; rules</a>
+  <a href="#lists">5 · Lists - the blocklists</a>
+  <a href="#dir">6 · Lists - outgoing, incoming, both</a>
+  <a href="#update">7 · Lists - updating</a>
+  <a href="#check">8 · Tools - check &amp; test an address</a>
+  <a href="#own">9 · Tools - your blocklist &amp; allowlist</a>
+  <a href="#adv">10 · Tools - advanced sets &amp; rules</a>
   <a href="#system">11 · System</a>
   <a href="#log">12 · Log</a>
   <a href="#files">13 · Files &amp; settings</a>
@@ -136,12 +136,12 @@
 <!-- 1 -->
 <div class="sec-title" id="what">1 · what this module does</div>
 <div class="box">
-  <p>The module blocks traffic by <strong>IP address</strong>, using the Linux kernel's <strong>ipset</strong> together with <strong>iptables</strong> (IPv4) and <strong>ip6tables</strong> (IPv6). Lists of known-bad networks — botnets, malware control servers, hijacked address space — are loaded into the kernel, and every connection to or from one of them is stopped.</p>
+  <p>The module blocks traffic by <strong>IP address</strong>, using the Linux kernel's <strong>ipset</strong> together with <strong>iptables</strong> (IPv4) and <strong>ip6tables</strong> (IPv6). Lists of known-bad networks - botnets, malware control servers, hijacked address space - are loaded into the kernel, and every connection to or from one of them is stopped.</p>
   <p>DNS blocking (like the DNSCrypt module) stops a name from being looked up. It cannot stop an app that connects to a <strong>hard-coded IP address</strong> without any lookup. Blocking by address does. The two work well together.</p>
   <div class="tw"><table>
     <tr><th>requirement</th><th></th></tr>
     <tr><td>CPU</td><td>arm64 only</td></tr>
-    <tr><td>Root</td><td>SukiSU Ultra, KernelSU or APatch (WebUI built in). Magisk works too — open the WebUI with MMRL or KSU WebUI Standalone.</td></tr>
+    <tr><td>Root</td><td>SukiSU Ultra, KernelSU or APatch (WebUI built in). Magisk works too - open the WebUI with MMRL or KSU WebUI Standalone.</td></tr>
     <tr><td>Kernel</td><td><code>CONFIG_IP_SET</code> and <code>CONFIG_NETFILTER_XT_SET</code>. System → Device shows whether your kernel has them. Most GKI kernels do.</td></tr>
     <tr><td>IPv6</td><td>Filtered too when the device has <code>ip6tables</code> with the set match. If not, IPv4 still works and the Dashboard says so.</td></tr>
   </table></div>
@@ -152,7 +152,7 @@
 <div class="box">
   <ol>
     <li>Flash the zip in your root manager and <strong>reboot</strong>.</li>
-    <li>Open the module's WebUI. The banner says <em>No blocklists downloaded yet</em> — a fresh install downloads nothing on its own.</li>
+    <li>Open the module's WebUI. The banner says <em>No blocklists downloaded yet</em> - a fresh install downloads nothing on its own.</li>
     <li>Go to <strong>Lists</strong>. FireHOL Level 1 and Spamhaus DROPv6 are already ticked (the recommended pair). Change the selection if you like and tap <strong>Save selection</strong>.</li>
     <li>Tap <strong>Update lists</strong> and watch the log below the button.</li>
     <li>Back on the <strong>Dashboard</strong> the banner turns to <em>Protected</em>.</li>
@@ -206,17 +206,17 @@
     <tr><td><span class="pill bad">Not blocking</span></td><td>The IPv4 rules could not be installed. See System and the Log.</td></tr>
   </table></div>
   <h3>Numbers</h3>
-  <p><strong>Networks</strong> is the number of networks on all active lists. <strong>Blocked out</strong> and <strong>Blocked in</strong> count packets stopped since the rules were last applied — they start again from zero after a reboot and after settings that rebuild the rules. <strong>Lists</strong> shows loaded / selected.</p>
+  <p><strong>Networks</strong> is the number of networks on all active lists. <strong>Blocked out</strong> and <strong>Blocked in</strong> count packets stopped since the rules were last applied - they start again from zero after a reboot and after settings that rebuild the rules. <strong>Lists</strong> shows loaded / selected.</p>
   <h3>Pause</h3>
   <p>15 minutes, 1 hour or 4 hours. The rules are unlinked and relinked by themselves when the time is up. A reboot also ends a pause. The lists stay loaded while paused.</p>
 </div>
 
 <!-- 5 -->
-<div class="sec-title" id="lists">5 · lists — the blocklists</div>
+<div class="sec-title" id="lists">5 · lists - the blocklists</div>
 <div class="box">
   <div class="tw"><table>
     <tr><th>list</th><th>size</th><th>what it holds</th></tr>
-    <tr><td>FireHOL Level 1</td><td>~4,700</td><td><strong>Recommended.</strong> Botnets, malware control servers, hijacked networks — chosen for a minimum of false positives.</td></tr>
+    <tr><td>FireHOL Level 1</td><td>~4,700</td><td><strong>Recommended.</strong> Botnets, malware control servers, hijacked networks - chosen for a minimum of false positives.</td></tr>
     <tr><td>FireHOL Level 2</td><td>~18,500</td><td>Attacks seen in the last 48 hours. Some false positives possible.</td></tr>
     <tr><td>FireHOL Level 3</td><td>~12,000</td><td>Attackers, spyware and malware seen in the last 30 days. More false positives.</td></tr>
     <tr><td>FireHOL Level 4</td><td>~160,000</td><td>Aggressive and very large. Expect some sites or services to break.</td></tr>
@@ -229,28 +229,28 @@
   <h3>View</h3>
   <p><strong>View</strong> opens the networks of a downloaded list, with a search box (type part of an address, e.g. <code>103.117</code>). From there:</p>
   <ul>
-    <li><strong>Let through</strong> — puts that network on your allowlist. A list is replaced completely on every update, so a line deleted from it would simply come back; the allowlist always wins and survives updates.</li>
-    <li><strong>Block one more</strong> — adds an address or network to your own blocklist.</li>
+    <li><strong>Let through</strong> - puts that network on your allowlist. A list is replaced completely on every update, so a line deleted from it would simply come back; the allowlist always wins and survives updates.</li>
+    <li><strong>Block one more</strong> - adds an address or network to your own blocklist.</li>
   </ul>
 </div>
 
 <!-- 6 -->
-<div class="sec-title" id="dir">6 · lists — outgoing, incoming, both</div>
+<div class="sec-title" id="dir">6 · lists - outgoing, incoming, both</div>
 <div class="box">
   <p>Each list, and your own blocklist, has its own direction:</p>
   <div class="tw"><table>
     <tr><th>direction</th><th>effect</th></tr>
     <tr><td>Outgoing</td><td>Connections <strong>from this phone</strong> to a listed address are stopped. Something on that address can still reach the phone.</td></tr>
-    <tr><td>Incoming</td><td>Connections a listed address <strong>starts towards this phone</strong> are dropped. Connections this phone opens to it still work — their replies are let through.</td></tr>
+    <tr><td>Incoming</td><td>Connections a listed address <strong>starts towards this phone</strong> are dropped. Connections this phone opens to it still work - their replies are let through.</td></tr>
     <tr><td>Both</td><td>Both of the above. The default.</td></tr>
   </table></div>
-  <p>Example: FireHOL Level 1 on Both, and the much larger Level 4 on Incoming only — scanners and attackers cannot reach the phone, but no site you visit breaks because of Level 4's false positives.</p>
-  <div class="note">A phone behind mobile data or home Wi-Fi rarely receives unsolicited connections from the internet — the carrier's NAT or the router stops most of them. Outgoing (or Both) is where a list does most of its work.</div>
+  <p>Example: FireHOL Level 1 on Both, and the much larger Level 4 on Incoming only - scanners and attackers cannot reach the phone, but no site you visit breaks because of Level 4's false positives.</p>
+  <div class="note">A phone behind mobile data or home Wi-Fi rarely receives unsolicited connections from the internet - the carrier's NAT or the router stops most of them. Outgoing (or Both) is where a list does most of its work.</div>
   <p>Changing a direction takes effect at once, without rebuilding the rules, so the Blocked counters keep counting.</p>
 </div>
 
 <!-- 7 -->
-<div class="sec-title" id="update">7 · lists — updating</div>
+<div class="sec-title" id="update">7 · lists - updating</div>
 <div class="box">
   <p><strong>Update lists</strong> downloads every selected list in the background. The log under the button shows each list as it arrives. The rest of the WebUI keeps working meanwhile.</p>
   <h3>Automatic update</h3>
@@ -260,14 +260,14 @@
     <tr><td>Daily</td><td>Each selected list is refreshed once it is a day old.</td></tr>
     <tr><td>Weekly</td><td>Each selected list is refreshed once it is a week old.</td></tr>
   </table></div>
-  <p>The Dashboard shows when the next automatic update is due (<em>next ≈ tomorrow 17:13</em>) and how the last one went — manual or automatic, when, and which lists failed. A failed update turns the row red and puts a red dot on the Lists tab; the lists you had stay in use. The result is kept across reboots.</p>
-  <p>The watchdog checks once a minute, starting two minutes after boot (when the network is usually up). Ages are measured with the real clock only after it has been set. A failed download is retried later — never more often than once an hour per list — and the last good copy stays in use in the meantime. Spamhaus asks for downloads at most once an hour; the module keeps to that.</p>
+  <p>The Dashboard shows when the next automatic update is due (<em>next ≈ tomorrow 17:13</em>) and how the last one went - manual or automatic, when, and which lists failed. A failed update turns the row red and puts a red dot on the Lists tab; the lists you had stay in use. The result is kept across reboots.</p>
+  <p>The watchdog checks once a minute, starting two minutes after boot (when the network is usually up). Ages are measured with the real clock only after it has been set. A failed download is retried later - never more often than once an hour per list - and the last good copy stays in use in the meantime. Spamhaus asks for downloads at most once an hour; the module keeps to that.</p>
   <h3>Download tools</h3>
   <p>Downloads use <code>curl</code> if the system has it, otherwise busybox <code>wget</code> (included with SukiSU, KernelSU and APatch), otherwise toybox <code>wget</code>.</p>
 </div>
 
 <!-- 8 -->
-<div class="sec-title" id="check">8 · tools — check &amp; test an address</div>
+<div class="sec-title" id="check">8 · tools - check &amp; test an address</div>
 <div class="box">
   <h3>Check</h3>
   <p>Looks an address up in every active list, your own lists and the special ranges, and tells you what the module would do with it. Nothing is sent over the network.</p>
@@ -281,30 +281,30 @@
     <tr><td><span class="pill skip">Not listed</span></td><td>No active list holds it; its traffic passes.</td></tr>
   </table></div>
   <h3>Test connection</h3>
-  <p>Actually connects from the phone to the address — like <code>curl</code> in a terminal — on the port you give (443, HTTPS, by default; 80 is HTTP; any port works). Whether <strong>this module</strong> stopped it is read from its own rule counters, so the answer does not rely on guessing from the timing:</p>
+  <p>Actually connects from the phone to the address - like <code>curl</code> in a terminal - on the port you give (443, HTTPS, by default; 80 is HTTP; any port works). Whether <strong>this module</strong> stopped it is read from its own rule counters, so the answer does not rely on guessing from the timing:</p>
   <div class="tw"><table>
     <tr><th>result</th><th>meaning</th></tr>
     <tr><td><span class="pill ok">Connected</span></td><td>The connection went through.</td></tr>
     <tr><td><span class="pill bad">Stopped by this module</span></td><td>Refused at once (Refuse setting) or dropped (Drop setting) by one of the module's rules. It says whether the outgoing or the incoming rule did it.</td></tr>
-    <tr><td><span class="pill warn">Refused elsewhere</span></td><td>Refused, but not by this module — usually nothing listens on that port there. Try 443 or 80.</td></tr>
+    <tr><td><span class="pill warn">Refused elsewhere</span></td><td>Refused, but not by this module - usually nothing listens on that port there. Try 443 or 80.</td></tr>
     <tr><td><span class="pill warn">No answer</span></td><td>Nothing came back in 4 seconds, and not because of this module: the host is down, the port is filtered, or there is no route.</td></tr>
   </table></div>
   <p>The test runs as root, so advanced rules limited to one app do not apply to it.</p>
 </div>
 
 <!-- 9 -->
-<div class="sec-title" id="own">9 · tools — your blocklist &amp; allowlist</div>
+<div class="sec-title" id="own">9 · tools - your blocklist &amp; allowlist</div>
 <div class="box">
   <p>One address or network per entry, IPv4 or IPv6, for example <code>203.0.113.7</code>, <code>198.51.100.0/24</code>, <code>2001:db8::/32</code>. Several can be added at once, separated by spaces or commas.</p>
   <ul>
     <li><strong>Your blocklist</strong> works like one more list, with its own direction (Outgoing / Incoming / Both).</li>
     <li><strong>Your allowlist</strong> always wins: an address on it is never blocked by any list, in either direction. Use it for a site a list blocks by mistake.</li>
   </ul>
-  <p>Both are plain text files, also kept in <code>/sdcard/ipset-arm64/</code> — <code>ip-blocklist.txt</code> and <code>ip-allowlist.txt</code>. Edit them with any app; the watchdog applies your changes within about 10 seconds. Lines starting with <code>#</code> are comments; invalid lines are skipped and counted in the log.</p>
+  <p>Both are plain text files, also kept in <code>/sdcard/ipset-arm64/</code> - <code>ip-blocklist.txt</code> and <code>ip-allowlist.txt</code>. Edit them with any app; the watchdog applies your changes within about 10 seconds. Lines starting with <code>#</code> are comments; invalid lines are skipped and counted in the log.</p>
 </div>
 
 <!-- 10 -->
-<div class="sec-title" id="adv">10 · tools — advanced sets &amp; rules</div>
+<div class="sec-title" id="adv">10 · tools - advanced sets &amp; rules</div>
 <div class="box">
   <p>For experts: your own ipset sets and your own firewall rules for them, as in the earlier versions of this module.</p>
   <h3>Sets</h3>
@@ -317,7 +317,7 @@
     <tr><td>Action</td><td><code>DROP</code> and <code>REJECT</code> stop the packet; <code>ACCEPT</code> lets it through past every list; <code>RETURN</code> means "no decision here" and the packet goes on to the lists.</td></tr>
     <tr><td>App</td><td>Optional, outgoing only: search an installed app by name and the rule applies to that app alone.</td></tr>
   </table></div>
-  <p>Your rules run <strong>before</strong> the allowlist and the lists, exactly as written, in the order you added them — on IPv4 or IPv6 depending on the set's family. A rule the kernel refuses (a set type and match that do not fit together) is not saved and you get the reason.</p>
+  <p>Your rules run <strong>before</strong> the allowlist and the lists, exactly as written, in the order you added them - on IPv4 or IPv6 depending on the set's family. A rule the kernel refuses (a set type and match that do not fit together) is not saved and you get the reason.</p>
   <p>Deleting a set that rules still use asks whether to delete those rules too. Sets named <code>ipsa_…</code> belong to the module and cannot be created or changed here. Sets created by other apps are listed but never touched.</p>
 </div>
 
@@ -331,11 +331,11 @@
     <tr><th>setting</th><th>effect</th></tr>
     <tr><td>Filter IPv6</td><td>Apply the lists to IPv6 as well. On by default.</td></tr>
     <tr><td>Filter hotspot clients</td><td>Apply the lists (their outgoing direction) to devices using this phone's hotspot or USB tethering. Off by default.</td></tr>
-    <tr><td>Protect DNSCrypt resolvers</td><td>Never block the addresses the DNSCrypt module uses — see section 15. On by default.</td></tr>
+    <tr><td>Protect DNSCrypt resolvers</td><td>Never block the addresses the DNSCrypt module uses - see section 15. On by default.</td></tr>
     <tr><td>Refuse at once / Drop silently</td><td>What happens to an outgoing connection to a blocked address. <strong>Refuse</strong>: the app gets an error immediately (TCP is answered with a reset, the rest with an ICMP error). <strong>Drop</strong>: the packet vanishes and the app waits for its own timeout. Incoming packets from blocked addresses are always dropped.</td></tr>
   </table></div>
   <h3>Re-apply rules</h3>
-  <p>Rebuilds the module's chains from the settings, your rules and the lists. Normally not needed — the watchdog does this by itself whenever something changes.</p>
+  <p>Rebuilds the module's chains from the settings, your rules and the lists. Normally not needed - the watchdog does this by itself whenever something changes.</p>
 </div>
 
 <!-- 12 -->
@@ -367,14 +367,14 @@
   <h3>settings.conf</h3>
   <div class="tw"><table>
     <tr><th>key</th><th>values</th></tr>
-    <tr><td>ENABLED</td><td><code>1</code> / <code>0</code> — the Protection switch</td></tr>
+    <tr><td>ENABLED</td><td><code>1</code> / <code>0</code> - the Protection switch</td></tr>
     <tr><td>SOURCES</td><td>selected lists, comma separated, or <code>none</code></td></tr>
     <tr><td>DIRECTIONS</td><td><code>list:out</code>, <code>list:in</code> or <code>list:both</code>, comma separated; <code>user</code> is your own blocklist. A list not named here blocks both.</td></tr>
     <tr><td>AUTO_UPDATE</td><td><code>off</code> / <code>daily</code> / <code>weekly</code></td></tr>
     <tr><td>OUT_TARGET</td><td><code>REJECT</code> (refuse at once) / <code>DROP</code></td></tr>
-    <tr><td>IPV6</td><td><code>1</code> / <code>0</code> — filter IPv6</td></tr>
-    <tr><td>FORWARD_BLOCK</td><td><code>1</code> / <code>0</code> — filter hotspot clients</td></tr>
-    <tr><td>DNSCRYPT_ALLOW</td><td><code>1</code> / <code>0</code> — protect DNSCrypt's resolvers</td></tr>
+    <tr><td>IPV6</td><td><code>1</code> / <code>0</code> - filter IPv6</td></tr>
+    <tr><td>FORWARD_BLOCK</td><td><code>1</code> / <code>0</code> - filter hotspot clients</td></tr>
+    <tr><td>DNSCRYPT_ALLOW</td><td><code>1</code> / <code>0</code> - protect DNSCrypt's resolvers</td></tr>
     <tr><td>LOG_KEEP_LINES</td><td>100 – 20000</td></tr>
   </table></div>
   <p>The file is read, never executed: unknown keys and invalid values are ignored and the default is used.</p>
@@ -423,6 +423,8 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTP
   <p>A resolver reached by hostname only (a DoH server without an address in its stamp) has no fixed address to protect; its address is looked up through the bootstrap resolvers, which are protected.</p>
   <h3>VPN</h3>
   <p>Apps' traffic still passes the module's rules with its real destination before it enters the VPN tunnel, so blocking keeps working with a VPN on. The VPN server's own address is only blocked if a list contains it; if that happens, put it on your allowlist.</p>
+  <h3>LAN Cloak</h3>
+  <p>The module of the same set that hides the phone on the Wi-Fi network (no device name in DHCP, no mDNS / SSDP / LLMNR announcements) uses its own chains and never touches this module's sets or chains; System → Health only shows its state.</p>
   <h3>Other firewalls</h3>
   <p>The module only adds its own chains and three links at the top of <code>OUTPUT</code>, <code>INPUT</code> and <code>FORWARD</code>. It does not change the rules of AFWall+ or other firewall apps. If another app removes the module's links, the watchdog puts them back.</p>
 </div>
@@ -455,9 +457,9 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTP
 <div class="sec-title" id="credits">18 · credits &amp; list terms</div>
 <div class="box">
   <ul>
-    <li><strong>FireHOL IP lists</strong> — <code>github.com/firehol/blocklist-ipsets</code>. The FireHOL lists combine many public sources, each with its own terms; see <code>iplists.firehol.org</code>.</li>
-    <li><strong>Spamhaus DROP / DROPv6</strong> — data © The Spamhaus Project. Free to use with attribution; automatic downloads at most once an hour.</li>
-    <li><strong>ipset</strong> — the netfilter project, <code>ipset.netfilter.org</code>, GPL-2.0.</li>
+    <li><strong>FireHOL IP lists</strong> - <code>github.com/firehol/blocklist-ipsets</code>. The FireHOL lists combine many public sources, each with its own terms; see <code>iplists.firehol.org</code>.</li>
+    <li><strong>Spamhaus DROP / DROPv6</strong> - data © The Spamhaus Project. Free to use with attribution; automatic downloads at most once an hour.</li>
+    <li><strong>ipset</strong> - the netfilter project, <code>ipset.netfilter.org</code>, GPL-2.0.</li>
   </ul>
 </div>
 

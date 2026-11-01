@@ -306,6 +306,7 @@
     .pill.warn { color: var(--amber);  border-color: rgba(255,159,67,0.4);  background: rgba(255,159,67,0.07); }
     .pill.bad  { color: var(--red);    border-color: rgba(255,107,107,0.45); background: rgba(255,107,107,0.08); }
     .pill.skip { color: var(--muted);  border-color: var(--border);        background: transparent; }
+    .pill.lanc { color: #ff3dd2;       border-color: rgba(255,61,210,0.4); background: rgba(255,61,210,0.06); }
 
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .act {
@@ -506,10 +507,10 @@
 <div id="banner"><span class="live-dot"></span>Connecting…</div>
 
 <div class="stats">
-  <div class="sc"><div class="lbl">Networks</div><div class="val" id="s-net">—</div></div>
-  <div class="sc"><div class="lbl">Blocked out</div><div class="val r" id="s-out">—</div></div>
-  <div class="sc"><div class="lbl">Blocked in</div><div class="val a" id="s-in">—</div></div>
-  <div class="sc"><div class="lbl">Lists</div><div class="val b" id="s-lists">—</div></div>
+  <div class="sc"><div class="lbl">Networks</div><div class="val" id="s-net">-</div></div>
+  <div class="sc"><div class="lbl">Blocked out</div><div class="val r" id="s-out">-</div></div>
+  <div class="sc"><div class="lbl">Blocked in</div><div class="val a" id="s-in">-</div></div>
+  <div class="sc"><div class="lbl">Lists</div><div class="val b" id="s-lists">-</div></div>
 </div>
 
 <nav class="tabs">
@@ -544,10 +545,10 @@
 
     <div class="section">
       <div class="section-title"><span class="s-accent" style="background:var(--red)"></span>Blocked since the rules were applied<span class="s-note c-m" id="since-note"></span></div>
-      <div class="d-stat"><span class="k">Outgoing connections</span><span class="v r" id="d-out">—</span></div>
-      <div class="d-stat"><span class="k">Incoming packets</span><span class="v a" id="d-in">—</span></div>
-      <div class="d-stat"><span class="k">Hotspot clients</span><span class="v m" id="d-fwd">—</span></div>
-      <div class="d-stat"><span class="k">By your advanced rules</span><span class="v m" id="d-adv">—</span></div>
+      <div class="d-stat"><span class="k">Outgoing connections</span><span class="v r" id="d-out">-</span></div>
+      <div class="d-stat"><span class="k">Incoming packets</span><span class="v a" id="d-in">-</span></div>
+      <div class="d-stat"><span class="k">Hotspot clients</span><span class="v m" id="d-fwd">-</span></div>
+      <div class="d-stat"><span class="k">By your advanced rules</span><span class="v m" id="d-adv">-</span></div>
     </div>
   </div>
 
@@ -699,7 +700,7 @@
 </main>
 
 <footer>
-  <span id="last-refresh">—</span>
+  <span id="last-refresh">-</span>
   <span id="src-info"></span>
   <button onclick="refreshNow()">↺ Refresh</button>
 </footer>
@@ -759,16 +760,27 @@ function legacyExec(cmd) {
   return { errno: 0, stdout: typeof r === 'string' ? r : (r && r.stdout) || '', stderr: '' };
 }
 
+// Which form of ksu.exec works. On a quick reopen the root manager can run
+// the page's first command before it has registered the new page, and that
+// answer never comes. So the check is asked again a moment later, several
+// times, and the first answer wins - instead of waiting seconds for a lost
+// one and then falling back to the slow form that blocks the page.
 async function detectExecMode() {
   if (!hasBridge()) throw new Error('no root bridge');
-  try {
-    const r = await callbackExec('echo ipsa_ok', 3000);
-    if ((r.stdout || '').indexOf('ipsa_ok') >= 0) return 'callback';
-  } catch (e) {}
-  try {
-    const l = legacyExec('echo ipsa_ok');
-    if ((l.stdout || '').indexOf('ipsa_ok') >= 0) return 'legacy';
-  } catch (e) {}
+  const viaCallback = await new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (!done) { done = true; resolve(v); } };
+    const ask = () => {
+      if (done) return;
+      callbackExec('echo ipsa_ok', 15000).then(
+        r => { if ((r.stdout || '').indexOf('ipsa_ok') >= 0) finish(true); },
+        e => { if (!/timeout/.test(String(e && e.message))) finish(false); });
+    };
+    [0, 400, 1000, 2000, 3500, 6000].forEach(t => setTimeout(ask, t));
+    setTimeout(() => finish(false), 16000);
+  });
+  if (viaCallback) return 'callback';
+  try { const l = legacyExec('echo ipsa_ok'); if ((l.stdout || '').indexOf('ipsa_ok') >= 0) return 'legacy'; } catch (e) {}
   throw new Error('root shell unavailable');
 }
 
@@ -851,7 +863,7 @@ const fmtN = n => num(n).toLocaleString('en-US');
 
 function fmtDur(sec) {
   sec = num(sec);
-  if (sec < 1) return '—';
+  if (sec < 1) return '-';
   const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600),
         m = Math.floor(sec % 3600 / 60), s = sec % 60;
   if (d) return `${d}d ${h}h`;
@@ -889,6 +901,20 @@ setInterval(() => { $('clock').textContent = new Date().toTimeString().slice(0, 
 
 function rowCtl(name, detail, ctrl) {
   return `<div class="row ctl"><div class="rn"><b>${name}</b>${detail ? `<span>${detail}</span>` : ''}</div>${ctrl}</div>`;
+}
+// LAN Cloak (same set): read only, from its own status file
+function lancRow(s) {
+  const age = parseInt(s.lancloak_age, 10);
+  if (s.lancloak === 'absent' || !s.lancloak) return row('LAN Cloak', 'hides the phone on Wi-Fi - not installed', 'skip', 'Not installed');
+  if (s.lancloak === 'disabled') return row('LAN Cloak', 'disabled in the root manager', 'warn', 'Disabled');
+  if (!s.lancloak_state || !(age < 60)) return row('LAN Cloak', 'no report from its watchdog', 'warn', 'No status');
+  if (s.lancloak_state === 'on') {
+    const d = s.lancloak_dhcp === 'on' ? 'DHCP cleaned' : s.lancloak_dhcp === 'waiting' ? 'DHCP: waiting for Wi-Fi' : 'DHCP untouched';
+    const a = s.lancloak_announce === 'on' ? 'announcements blocked' : 'announcements allowed';
+    return row('LAN Cloak', `<em style="font-style:normal;color:#ff3dd2">${d} · ${a}</em>`, 'lanc', 'Cloaked');
+  }
+  if (s.lancloak_state === 'error') return row('LAN Cloak', s.lancloak_reason === 'dhcp' ? 'DHCP guard failed - see LAN Cloak' : 'firewall rules failed - see LAN Cloak', 'warn', 'Error');
+  return row('LAN Cloak', s.lancloak_reason === 'nothing-selected' ? 'nothing selected in its settings' : 'turned off in its settings', 'skip', 'Off');
 }
 function row(name, detail, pill, pillText) {
   return `<div class="row"><div class="rn"><b>${name}</b>${detail ? `<span>${detail}</span>` : ''}</div>
@@ -934,21 +960,21 @@ function famLabel(v) {
     case 'ok-drop': return ['ok', 'Active (drop)'];
     case 'off': return ['skip', 'Off'];
     case 'unavailable': return ['skip', 'Not available'];
-    default: return v && v.indexOf('error') === 0 ? ['bad', 'Failed'] : ['skip', '—'];
+    default: return v && v.indexOf('error') === 0 ? ['bad', 'Failed'] : ['skip', '-'];
   }
 }
 
 function renderBanner(m) {
   if (_updRunning) { setBanner('b-warn', '⚙ Updating lists…'); return; }
   const st = m.state;
-  if (st === 'disabled') { setBanner('b-warn', 'Switched off — nothing is blocked'); return; }
-  if (pauseRemaining() > 0) { setBanner('b-warn', `Paused — protection resumes in ${mmss(pauseRemaining())}`); return; }
-  if (st === 'error') { setBanner('b-error', 'Not blocking — the IPv4 firewall rules failed (see System)'); return; }
-  if (m.lists_empty === '1') { setBanner('b-warn', 'No blocklists downloaded yet — open Lists and tap Update'); return; }
-  if (st === 'partial') { setBanner('b-warn', 'Protected on IPv4 only — IPv6 is not filtered'); return; }
+  if (st === 'disabled') { setBanner('b-warn', 'Switched off - nothing is blocked'); return; }
+  if (pauseRemaining() > 0) { setBanner('b-warn', `Paused - protection resumes in ${mmss(pauseRemaining())}`); return; }
+  if (st === 'error') { setBanner('b-error', 'Not blocking - the IPv4 firewall rules failed (see System)'); return; }
+  if (m.lists_empty === '1') { setBanner('b-warn', 'No blocklists downloaded yet - open Lists and tap Update'); return; }
+  if (st === 'partial') { setBanner('b-warn', 'Protected on IPv4 only - IPv6 is not filtered'); return; }
   if (st === 'protected') {
     const fams = (m.ipv6 === 'ok' || m.ipv6 === 'ok-drop') ? 'IPv4 and IPv6' : 'IPv4';
-    setBanner('', `Protected on ${fams} — ${fmtN(num(m.entries4) + num(m.entries6))} networks blocked`);
+    setBanner('', `Protected on ${fams} - ${fmtN(num(m.entries4) + num(m.entries6))} networks blocked`);
     return;
   }
   setBanner('b-warn', 'Waiting for the watchdog…');
@@ -963,13 +989,13 @@ function renderDashboard(m) {
 
   const [p4, t4] = famLabel(m.ipv4), [p6, t6] = famLabel(m.ipv6);
   const stTxt = { protected: ['ok', 'Protected'], partial: ['warn', 'Partly'], paused: ['warn', 'Paused'],
-                  disabled: ['skip', 'Off'], error: ['bad', 'Not blocking'] }[m.state] || ['skip', m.state || '—'];
+                  disabled: ['skip', 'Off'], error: ['bad', 'Not blocking'] }[m.state] || ['skip', m.state || '-'];
   const wd = m.watchdog === 'running';
   let h = '';
   h += row('State', '', stTxt[0], stTxt[1]);
   h += row('IPv4', m.ipv4 && m.ipv4.indexOf('error') === 0 ? esc(famReason(m.ipv4)) : `${fmtN(m.entries4)} networks`, p4, t4);
   h += row('IPv6', m.ipv6 && m.ipv6.indexOf('error') === 0 ? esc(famReason(m.ipv6)) : `${fmtN(m.entries6)} networks`, p6, t6);
-  h += row('Watchdog', wd ? `checks every 10 s · repairs ${num(m.repairs)}` : 'not running — reboot, or check the log', wd ? 'ok' : 'bad', wd ? 'Running' : 'Stopped');
+  h += row('Watchdog', wd ? `checks every 10 s · repairs ${num(m.repairs)}` : 'not running - reboot, or check the log', wd ? 'ok' : 'bad', wd ? 'Running' : 'Stopped');
   h += `<div class="row set-row" onclick="showTab('tools')"><div class="rn"><b>Your lists</b><span>${fmtN(m.block_entries)} blocked · ${fmtN(m.allow_entries)} allowed</span></div><span class="pill skip">Edit</span></div>`;
   const au = autoInfo(m);
   h += row('Automatic update', au.text, au.pill, au.pillText).replace('<span>', '<span class="wrap">');
@@ -980,7 +1006,7 @@ function renderDashboard(m) {
        <button class="btn-s a" onclick="showTab('lists')">Open Lists</button></div>` : '';
 
   $('master-row').innerHTML = rowCtl('Protection', m.enabled === '1'
-      ? 'On — the firewall rules are active' : 'Off — the module blocks nothing until you switch it back on',
+      ? 'On - the firewall rules are active' : 'Off - the module blocks nothing until you switch it back on',
     sw('sw-master', m.enabled === '1', 'toggleMaster(this.checked)'));
 
   _pauseLeft = num(m.paused_left); _pauseAt = Date.now();
@@ -1024,7 +1050,7 @@ function autoInfo(m) {
   if (m.last_update_mode) {
     const when = lw ? whenClock(lw) : 'at boot';
     const how = m.last_update_mode === 'auto' ? 'automatic' : 'manual';
-    if (lf && !lok) lines.push(`<span class="c-r">last (${how}, ${esc(when)}): failed — the previous copies are in use</span>`);
+    if (lf && !lok) lines.push(`<span class="c-r">last (${how}, ${esc(when)}): failed - the previous copies are in use</span>`);
     else if (lf) lines.push(`<span class="c-a">last (${how}, ${esc(when)}): ${lok} ok, failed: ${esc((m.last_update_failed || '').split(',').map(srcName).join(', '))}</span>`);
     else lines.push(`last (${how}, ${esc(when)}): ${lok} list${lok === 1 ? '' : 's'} updated`);
   }
@@ -1036,7 +1062,7 @@ function autoInfo(m) {
 function renderPause() {
   const left = pauseRemaining();
   $('pause-state').innerHTML = left > 0
-    ? `<span class="c-a">Paused — ${mmss(left)} left</span>` : 'Pausing switches the rules off for a while and back on by itself. A reboot also ends a pause.';
+    ? `<span class="c-a">Paused - ${mmss(left)} left</span>` : 'Pausing switches the rules off for a while and back on by itself. A reboot also ends a pause.';
   $('resume-btn').disabled = left <= 0;
 }
 setInterval(() => { if (pauseRemaining() > 0 || _pauseLeft > 0) { renderPause(); renderBanner(M); } }, 1000);
@@ -1101,7 +1127,7 @@ async function loadSources() {
 }
 
 function srcMeta(s) {
-  if (s.status === 'fail' && s.cached) return `<span class="fail">Last download failed: ${esc(s.error)} — using the copy from ${esc(ago(s.updated) || 'earlier')}</span>`;
+  if (s.status === 'fail' && s.cached) return `<span class="fail">Last download failed: ${esc(s.error)} - using the copy from ${esc(ago(s.updated) || 'earlier')}</span>`;
   if (s.status === 'fail') return `<span class="fail">Download failed: ${esc(s.error)}</span>`;
   if (!s.cached) return `<span>Not downloaded yet</span>`;
   const when = s.updated ? `updated ${ago(s.updated)}` : 'date unknown';
@@ -1224,8 +1250,8 @@ function finishUpdate(st) {
   _updRunning = false;
   setUpdRunningUI(false);
   const ok = num(st.ok_count), bad = num(st.fail_count);
-  if (bad && !ok) setUpdStatus('✗ Update failed — the lists you had are still in use', 'var(--red)');
-  else if (bad) setUpdStatus(`⚠ ${ok} updated, ${bad} failed — see below`, 'var(--amber)');
+  if (bad && !ok) setUpdStatus('✗ Update failed - the lists you had are still in use', 'var(--red)');
+  else if (bad) setUpdStatus(`⚠ ${ok} updated, ${bad} failed - see below`, 'var(--amber)');
   else if (ok) setUpdStatus(`✓ ${ok} list${ok > 1 ? 's' : ''} updated`, 'var(--green)');
   else setUpdStatus('Tap Update to download the selected lists');
   setTimeout(() => { poll(); if (currentTab === 'lists') loadSources(); }, 600);
@@ -1288,10 +1314,10 @@ async function testConn() {
   const mod = r.blocked_by_module === '1', viaIn = num(r.module_hits_in) > 0 && !num(r.module_hits_out);
   let v, cls, why;
   if (r.result === 'connected') { v = 'Connected'; cls = 'g'; why = `A connection to ${esc(ip)} port ${esc(port)} got through in ${ms} ms.`; }
-  else if (mod && r.result === 'refused') { v = 'Stopped by this module'; cls = 'r'; why = `Refused at once (${ms} ms) by the outgoing rule — the app gets an immediate error.`; }
+  else if (mod && r.result === 'refused') { v = 'Stopped by this module'; cls = 'r'; why = `Refused at once (${ms} ms) by the outgoing rule - the app gets an immediate error.`; }
   else if (mod) { v = 'Stopped by this module'; cls = 'r'; why = viaIn ? `No answer after ${secs} s: the reply was dropped by an incoming rule.` : `No answer after ${secs} s: dropped silently by the outgoing rule.`; }
-  else if (r.result === 'refused') { v = 'Refused elsewhere'; cls = 'a'; why = `Refused in ${ms} ms, but not by this module — most likely nothing listens on port ${esc(port)} there.`; }
-  else { v = 'No answer'; cls = 'a'; why = `Nothing came back within ${secs} s, and this module did not stop it — the host may be down, the port filtered, or there is no route.`; }
+  else if (r.result === 'refused') { v = 'Refused elsewhere'; cls = 'a'; why = `Refused in ${ms} ms, but not by this module - most likely nothing listens on port ${esc(port)} there.`; }
+  else { v = 'No answer'; cls = 'a'; why = `Nothing came back within ${secs} s, and this module did not stop it - the host may be down, the port filtered, or there is no route.`; }
   let h = `<div class="verdict ${cls}">${v}</div><div class="kv-block">${why}`;
   if (r.state !== 'protected' && r.state !== 'partial') h += `<br><span class="c-a">Protection is ${esc(r.state)} right now.</span>`;
   h += '<br><span class="c-m">The test runs as root: rules limited to one app do not apply to it.</span></div>';
@@ -1480,7 +1506,7 @@ async function openSource(id, filter) {
   $('sv-list').innerHTML = items.length ? items.map(e => `<div class="rule-row"><span class="ipl">${esc(e)}</span><button class="btn-s" style="padding:1px 7px" onclick="svAllow(${esc(JSON.stringify(e))})">Let through</button></div>`).join('')
     : `<div class="empty">${f ? 'No network matches.' : 'The list is empty.'}</div>`;
   const shown = items.length, total = num(f ? kv.matches : kv.total);
-  $('sv-note').innerHTML = (total > shown ? `Showing ${fmtN(shown)} of ${fmtN(total)}${f ? ' matches' : ''} — search to narrow it down. ` : '')
+  $('sv-note').innerHTML = (total > shown ? `Showing ${fmtN(shown)} of ${fmtN(total)}${f ? ' matches' : ''} - search to narrow it down. ` : '')
     + 'Lists are replaced on every update, so <b>Let through</b> puts the network on your allowlist, which always wins.';
 }
 async function svAllow(e) {
@@ -1530,12 +1556,17 @@ function onChainChange() {
 // System
 // ═════════════════════════════════════════════════════════════════════════
 let S = {};
+let _statusBusy = false;
 async function loadStatus(manual) {
-  const t = await ctl('status', 20000);
-  S = parseKV(t);
-  if (!S.version) { $('sys-health').innerHTML = `<div class="empty c-r">${esc(S.error || 'No answer')}</div>`; return; }
-  renderStatus(S);
-  if (manual) toast('Status refreshed', 'ok');
+  if (_statusBusy) return;
+  _statusBusy = true;
+  try {
+    const t = await ctl('status', 20000);
+    S = parseKV(t);
+    if (!S.version) { $('sys-health').innerHTML = `<div class="empty c-r">${esc(S.error || 'No answer')}</div>`; return; }
+    renderStatus(S);
+    if (manual) toast('Status refreshed', 'ok');
+  } finally { _statusBusy = false; }
 }
 const yes = v => v === '1';
 
@@ -1559,13 +1590,14 @@ function renderStatus(s) {
     const bad = num(s.adv_rules_skipped) + num(s.adv_rules_rejected);
     h += row('Your advanced rules', bad ? `${bad} not active (set missing or refused by the kernel)` : `${num(s.adv_rules)} active`, bad ? 'warn' : 'ok', bad ? 'Check' : 'OK');
   }
+  h += lancRow(s);
   $('sys-health').innerHTML = h;
 
   let g = '';
   g += rowCtl('Filter IPv6', 'Apply the lists to IPv6 traffic as well', sw('sw-ipv6', yes(s.ipv6_setting), "setSetting('IPV6', this.checked ? 1 : 0, this)"));
   g += rowCtl('Filter hotspot clients', 'Apply the lists to devices using this phone’s hotspot or USB tethering', sw('sw-fwd', yes(s.forward_block), "setSetting('FORWARD_BLOCK', this.checked ? 1 : 0, this)"));
   const dn = s.dnscrypt === 'found' ? `${num(s.dnscrypt_addrs)} address${num(s.dnscrypt_addrs) === 1 ? '' : 'es'} of its resolvers are never blocked`
-    : s.dnscrypt === 'absent' ? 'The dnscrypt-proxy module is not installed' : 'Off — the lists may block its resolvers';
+    : s.dnscrypt === 'absent' ? 'The dnscrypt-proxy module is not installed' : 'Off - the lists may block its resolvers';
   g += rowCtl('Protect DNSCrypt resolvers', dn, sw('sw-dnsc', yes(s.dnscrypt_setting), "setSetting('DNSCRYPT_ALLOW', this.checked ? 1 : 0, this)"));
   $('sys-settings').innerHTML = g;
   document.querySelectorAll('#tgt-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === s.out_target));
@@ -1593,7 +1625,7 @@ async function setSetting(key, val, el) {
 async function doApply() {
   const r = parseKV(await ctl('apply'));
   $('act-result').innerHTML = r.ok === '1'
-    ? `<span class="c-g">Rules applied — IPv4: ${esc(r.ipv4)}, IPv6: ${esc(r.ipv6)}</span>`
+    ? `<span class="c-g">Rules applied - IPv4: ${esc(r.ipv4)}, IPv6: ${esc(r.ipv6)}</span>`
     : `<span class="c-r">${esc(r.error || 'Apply failed')}</span>`;
   loadStatus(); poll();
 }
@@ -1662,6 +1694,8 @@ function refreshNow() {
   await poll();
   loadSources();
   setInterval(() => { if (!document.hidden) poll(); }, 5000);
+  // System re-reads the full status while it is open (like the sibling modules)
+  setInterval(() => { if (currentTab === 'sys' && !document.hidden) loadStatus(); }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();
 
