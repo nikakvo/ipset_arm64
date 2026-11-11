@@ -47,8 +47,8 @@ done
 unset _p _pid
 echo "$MYPID" > "$WATCHDOG_PIDFILE"
 
-STARTED=$(mono_now)
-NOW=$STARTED
+mono_set
+STARTED=$NOW
 REPAIRS=0
 LAST_REPAIR="none"
 LAST_REPAIR_AT=0
@@ -71,11 +71,22 @@ if [ -z "$IPT4" ] || [ -z "$RST4" ]; then
 fi
 
 # ── State published to $HEALTH_FILE ──────────────────────────────────────────
+# The family results in F4 / F6 (ok | ok-drop | off | unavailable |
+# error:<reason> | unknown), read without forks. Re-read after every apply
+# and once per tick (ctl.sh can change them).
+fam_read() {
+  F4=unknown; F6=unknown
+  read -r F4 2>/dev/null < "$RUN/fam4"
+  read -r F6 2>/dev/null < "$RUN/fam6"
+  return 0
+}
+
 compute_state() {
+  fam_read
   if [ "$ENABLED" != "1" ]; then H_STATE=disabled; return; fi
   if is_paused; then H_STATE=paused; return; fi
-  case "$(fam_state 4)" in ok | ok-drop) : ;; *) H_STATE=error; return ;; esac
-  case "$(fam_state 6)" in
+  case "$F4" in ok | ok-drop) : ;; *) H_STATE=error; return ;; esac
+  case "$F6" in
     ok | ok-drop) H_STATE=protected ;;
     off) if [ "$IPV6" = "1" ]; then H_STATE=partial; else H_STATE=protected; fi ;;
     *) H_STATE=partial ;;
@@ -85,8 +96,8 @@ compute_state() {
 write_health() {
   {
     echo "state=$H_STATE"
-    echo "ipv4=$(fam_state 4)"
-    echo "ipv6=$(fam_state 6)"
+    echo "ipv4=$F4"
+    echo "ipv6=$F6"
     echo "repairs=$REPAIRS"
     echo "last_repair=$LAST_REPAIR"
     echo "last_repair_at=$LAST_REPAIR_AT"
@@ -96,18 +107,18 @@ write_health() {
   } > "$HEALTH_FILE.tmp" 2>/dev/null && mv -f "$HEALTH_FILE.tmp" "$HEALTH_FILE"
 }
 
-fam_label() {
-  _fl=""
-  case "$(fam_state 4)" in ok | ok-drop) _fl="IPv4" ;; esac
-  case "$(fam_state 6)" in ok | ok-drop) _fl="${_fl:+$_fl + }IPv6" ;; esac
-  echo "${_fl:-none}"
-  unset _fl
+fam_label() { # -> FLB
+  FLB=""
+  case "$F4" in ok | ok-drop) FLB="IPv4" ;; esac
+  case "$F6" in ok | ok-drop) FLB="${FLB:+$FLB + }IPv6" ;; esac
+  FLB=${FLB:-none}
 }
 
 update_module_status() {
+  fam_label
   case "$H_STATE" in
-    protected) _us="✅ Protected ($(fam_label))" ;;
-    partial)   _us="⚠️ Partly protected ($(fam_label))" ;;
+    protected) _us="✅ Protected ($FLB)" ;;
+    partial)   _us="⚠️ Partly protected ($FLB)" ;;
     paused)    _us="⏸️ Paused" ;;
     disabled)  _us="⭕ Switched off" ;;
     *)         _us="❌ Not enforcing - open the WebUI" ;;
@@ -125,8 +136,8 @@ update_module_status() {
 after_apply() {
   compute_state
   for _aa_f in 4 6; do
-    if [ "$_aa_f" = "4" ]; then _aa_d=$RETRY_DELAY4; else _aa_d=$RETRY_DELAY6; fi
-    case "$(fam_state "$_aa_f")" in
+    if [ "$_aa_f" = "4" ]; then _aa_d=$RETRY_DELAY4; _aa_s=$F4; else _aa_d=$RETRY_DELAY6; _aa_s=$F6; fi
+    case "$_aa_s" in
       error*)
         _aa_at=$(( $(mono_now) + _aa_d ))
         _aa_d=$((_aa_d * 2)); [ "$_aa_d" -gt 3600 ] && _aa_d=3600
@@ -136,56 +147,105 @@ after_apply() {
     if [ "$_aa_f" = "4" ]; then RETRY_AT4=$_aa_at; RETRY_DELAY4=$_aa_d
     else RETRY_AT6=$_aa_at; RETRY_DELAY6=$_aa_d; fi
   done
-  unset _aa_f _aa_d _aa_at
+  unset _aa_f _aa_d _aa_at _aa_s
 }
 
-# What (if anything) needs an apply. Called with the lock held.
-# Prints "<kind> <family|all> <reason>"; kind = config (expected), retry (a family that
-# failed, on its backoff schedule; logged only if the error changes) or
-# repair (changed from outside).
+# What (if anything) needs an apply. Called with the lock held, in the
+# watchdog itself (not in a subshell): the answer goes to WC,
+# "<kind> <family|all> <reason>" or empty; kind = config (expected), retry
+# (a family that failed, on its backoff schedule; logged only if the error
+# changes) or repair (changed from outside).
+# The idle path costs one stat, one "ipset list -n", one "ipset test" per
+# enabled source and one iptables-save | grep | cksum per family; the rest
+# are shell builtins.
 # (Space, not "|": mksh treats | in ${x%%pattern} as alternation.)
 what_changed() {
-  if [ "$(mtime_of "$CONF")" != "$(cat "$APPLIED_CONF_MTIME" 2>/dev/null)" ]; then
-    echo "config all settings changed"; return
+  WC=""
+  CS=$(conf_stamp)
+  first_line "$APPLIED_CONF_MTIME"
+  if [ "$CS" != "$FL" ]; then
+    WC="config all settings changed"; return
   fi
   if [ -f "$PAUSE_FILE" ] && [ "$(pause_left)" -eq 0 ]; then
     rm -f "$PAUSE_FILE"
-    echo "config all pause ended"; return
+    WC="config all pause ended"; return
   fi
   if [ $((_ticks % AUTO_EVERY)) -eq 0 ] && dnsc_changed; then
-    echo "config all dnscrypt-proxy configuration changed"; return
+    WC="config all dnscrypt-proxy configuration changed"; return
   fi
+  # WG Shield tunnels changed: only the exempt set is reloaded (the rules
+  # already reference it), so no apply and no counter reset.
+  if [ $((_ticks % AUTO_EVERY)) -eq 0 ] && wgs_changed; then
+    log_info "wg-shield: $(wgs_sync)"
+  fi
+  # One "ipset list -t" (headers of every set, no entries) answers both
+  # questions below: which sets exist, and whether a source set is linked
+  # (References > 0: only ipsa_out<f> / ipsa_in<f> hold a source set -
+  # ipctl.sh refuses rules on ipsa_* sets). r15: was list -n + one
+  # "ipset test" per source; each program start costs ~20 ms on the phone.
+  _wc_t=$("$IPSET" list -t 2>/dev/null)
+  # ipset could not run or the kernel refused (seen once on the phone in
+  # the second before a shutdown, before any shutdown property was set):
+  # nothing can be concluded - no "missing", no rebuild; next tick again.
+  if [ $? -ne 0 ]; then unset _wc_t; return; fi
+  _wc_t="
+$_wc_t
+"
   _wc_m=""
-  for _wc_i in $(src_enabled); do
-    [ -s "$(src_file "$_wc_i")" ] && ! src_in_kernel "$_wc_i" && _wc_m="$_wc_m $_wc_i"
+  if [ "$SOURCES" != "none" ]; then
+    for _wc_i in $SRC_IDS; do
+      case ",$SOURCES," in *",$_wc_i,"*) : ;; *) continue ;; esac
+      [ -s "$CACHE/$_wc_i.txt" ] || continue
+      src_lookup "$_wc_i"
+      case "$_wc_t" in
+        *"
+Name: $SS
+"*)
+          # shellcheck disable=SC3057  # false positive: newline in the pattern
+          _wc_r=${_wc_t#*"
+Name: $SS
+"}
+          _wc_r=${_wc_r#*References: }; _wc_r=${_wc_r%%[!0-9]*}
+          [ "${_wc_r:-0}" -gt 0 ] || _wc_m="$_wc_m $_wc_i" ;;
+        *) _wc_m="$_wc_m $_wc_i" ;;
+      esac
+    done
+  fi
+  if [ -n "$_wc_m" ]; then
+    WC="config all source(s) to load:$_wc_m"; unset _wc_m _wc_i _wc_t _wc_r; return
+  fi
+  unset _wc_i _wc_m _wc_r
+  MM=""
+  for _wc_s in $MANAGED_SETS; do
+    case "$_wc_t" in *"
+Name: $_wc_s
+"*) : ;; *) MM="${MM:+$MM }$_wc_s" ;; esac
   done
-  if [ -n "$_wc_m" ]; then
-    echo "config all source(s) to load:$_wc_m"; unset _wc_m _wc_i; return
+  unset _wc_s _wc_t
+  if [ -n "$MM" ]; then
+    WC="repair all managed set(s) missing: $MM"; return
   fi
-  unset _wc_i
-  _wc_m=$(managed_missing | tr '\n' ' ')
-  if [ -n "$_wc_m" ]; then
-    echo "repair all managed set(s) missing: ${_wc_m% }"; unset _wc_m; return
-  fi
-  unset _wc_m
-  _wc_now=$(mono_now)
+  fam_read
   for _wc_f in 4 6; do
     [ "$_wc_f" = "6" ] && ! v6_supported && continue
-    if [ "$_wc_f" = "4" ]; then _wc_r=$RETRY_AT4; else _wc_r=$RETRY_AT6; fi
-    [ "$_wc_r" -gt 0 ] && [ "$_wc_now" -lt "$_wc_r" ] && continue
+    if [ "$_wc_f" = "4" ]; then _wc_r=$RETRY_AT4; _wc_s=$F4; else _wc_r=$RETRY_AT6; _wc_s=$F6; fi
+    [ "$_wc_r" -gt 0 ] && [ "$NOW" -lt "$_wc_r" ] && continue
     # A family that failed earlier has no stored signature: this is the
     # scheduled retry, not something changed from outside.
-    case "$(fam_state "$_wc_f")" in
+    case "$_wc_s" in
       error*)
         # (RETRY_AT 0: the failure came from ctl.sh, not from this loop -
         # retry now, which also starts the backoff.)
-        echo "retry $_wc_f IPv$_wc_f: retrying after the earlier failure"; unset _wc_f _wc_r _wc_now; return ;;
+        WC="retry $_wc_f IPv$_wc_f: retrying after the earlier failure"; unset _wc_f _wc_r _wc_s; return ;;
     esac
-    if [ "$(rules_sig "$_wc_f")" != "$(cat "$RUN/sig$_wc_f" 2>/dev/null)" ]; then
-      echo "repair $_wc_f IPv$_wc_f firewall rules changed from outside"; unset _wc_f _wc_r _wc_now; return
+    rules_sig_v "$_wc_f"
+    [ "$SIG_OK" = "1" ] || continue    # table unreadable right now (see above)
+    first_line "$RUN/sig$_wc_f"
+    if [ "$SIG" != "$FL" ]; then
+      WC="repair $_wc_f IPv$_wc_f firewall rules changed from outside"; unset _wc_f _wc_r _wc_s; return
     fi
   done
-  unset _wc_f _wc_r _wc_now
+  unset _wc_f _wc_r _wc_s
 }
 
 # ── Wait for netd ────────────────────────────────────────────────────────────
@@ -207,7 +267,7 @@ else
 fi
 unset _w
 
-NOW=$(mono_now)
+mono_set
 if lock_get 60; then
   rules_apply
   lock_release
@@ -216,16 +276,17 @@ else
 fi
 load_settings
 after_apply
-bootlog "service: firewall applied - state $H_STATE (IPv4: $(fam_state 4), IPv6: $(fam_state 6))"
-log_info "watchdog started (pid $MYPID) - state $H_STATE, IPv4 $(fam_state 4), IPv6 $(fam_state 6), SELinux $(getenforce 2>/dev/null || echo unknown)"
+bootlog "service: firewall applied - state $H_STATE (IPv4: $F4, IPv6: $F6)"
+log_info "watchdog started (pid $MYPID) - state $H_STATE, IPv4 $F4, IPv6 $F6, SELinux $(getenforce 2>/dev/null || echo unknown)"
 write_health
 update_module_status
 
 # ── Loop ─────────────────────────────────────────────────────────────────────
 # The phone is shutting down: stop quietly. (Sets, rules and files of the
 # module vanish under a running watchdog then, and every check would fail.)
-# Checked at the start of each tick and again around an apply, because a
-# tick that began just before the shutdown would otherwise carry on.
+# Checked when a tick found work (before acting on it), right after an
+# apply and before an automatic update. An idle tick only reads, so it
+# needs no check (r15; before: also at the start of every tick).
 # shellcheck disable=SC2034  # read by the log functions in sh/common.sh
 QUIET_ON_SHUTDOWN=1
 stop_for_shutdown() {
@@ -239,10 +300,14 @@ stop_for_shutdown() {
 _ticks=0
 while true; do
   sleep "$TICK"
-  NOW=$(mono_now)
-  shutting_down && stop_for_shutdown
+  mono_set
+  # (r15: no shutdown check here - two getprop starts per tick cost ~34 ms
+  # on the phone. An idle tick only reads; the check runs before anything
+  # is changed: after what_changed found work, after an apply, and before
+  # an automatic update.)
   if lock_try; then
-    _chg=$(what_changed)
+    what_changed
+    _chg=$WC
     [ -n "$_chg" ] && shutting_down && stop_for_shutdown locked
     if [ -n "$_chg" ]; then
       _kind=${_chg%% *}; _rest=${_chg#* }
@@ -263,21 +328,29 @@ while true; do
       load_settings
       after_apply
     fi
-    _sd=$(sd_sync)
-    [ -n "$_sd" ] && echo "$_sd" | while read -r _l; do log_info "sdcard: $_l"; done
+    sd_sync_v
+    if [ -n "$SY_OUT" ]; then
+      echo "$SY_OUT" | while read -r _l; do log_info "sdcard: $_l"; done
+    fi
     lock_release
   fi
   # Automatic list updates: checked once a minute, run detached so the
   # watchdog never waits on a download.
   # (Not in the first 2 minutes after boot: the network is usually not up.)
-  if [ $((_ticks % AUTO_EVERY)) -eq 0 ] && [ $((NOW - STARTED)) -ge "$AUTO_BOOT_DELAY" ] && ! update_running; then
+  if [ "$AUTO_UPDATE" != "off" ] && [ $((_ticks % AUTO_EVERY)) -eq 0 ] &&
+    [ $((NOW - STARTED)) -ge "$AUTO_BOOT_DELAY" ] && ! update_running; then
     _due=$(auto_due)
     if [ -n "$_due" ]; then
+      shutting_down && stop_for_shutdown
       log_info "watchdog: starting automatic list update ($AUTO_UPDATE): $_due"
       # shellcheck disable=SC2086
       update_spawn auto $_due
     fi
   fi
+  # Every tick: ctl.sh may have changed and applied a setting itself.
+  # (Not "only when the mtime changed": two writes in the same second with
+  # the same size - disable, then enable - would be missed. It is shell
+  # builtins only since r15, about 1 ms.)
   load_settings
   compute_state
   write_health

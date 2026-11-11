@@ -82,5 +82,10 @@ dnsc_sync() {
 
 # Has the dnscrypt config (or the switch) changed since the last sync?
 dnsc_changed() {
-  [ "$(printf '%s\n%s' "$(mtime_of "$DNSC_TOML")" "$DNSCRYPT_ALLOW")" != "$(cat "$RUN/dnsc.mtime" 2>/dev/null)" ]
+  _dc_m=$(mtime_of "$DNSC_TOML"); _dc_a=""; _dc_b=""
+  { read -r _dc_a; read -r _dc_b; } 2>/dev/null < "$RUN/dnsc.mtime"
+  [ "$_dc_m" != "$_dc_a" ] || [ "$DNSCRYPT_ALLOW" != "$_dc_b" ]
+  _dc_rc=$?
+  unset _dc_m _dc_a _dc_b
+  return "$_dc_rc"
 }

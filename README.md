@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/ARM64-only-00d4ff?style=flat-square" />
-  <img src="https://img.shields.io/badge/v7.24--r14-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/v7.24--r15-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/SukiSU%20%2F%20KernelSU%20%2F%20APatch%20%2F%20Magisk-compatible-4affb4?style=flat-square" />
   <img src="https://img.shields.io/badge/IPv4%20%2B%20IPv6-filtered-00d4ff?style=flat-square" />
 </p>
@@ -28,6 +28,7 @@ DNS blocking stops a name from being looked up; it cannot stop an app that conne
 * **Advanced**: your own ipset sets and firewall rules, per app if you like, as in earlier versions
 * **Watchdog**: puts the rules back within seconds when Android's network daemon or another app removes them
 * **DNSCrypt aware**: the resolvers the DNSCrypt module uses are never blocked
+* **WG Shield aware**: the servers of your WG Shield tunnels are never blocked
 * **Help** built into the WebUI, explaining every screen and setting
 
 ## How it works
@@ -36,10 +37,12 @@ The module keeps its rules in its own chains, linked at the top of Android's `OU
 
 ```
 outgoing   loopback → your advanced rules → allowlist → DNSCrypt resolvers
-           → LAN & special ranges → lists (Outgoing/Both) → refuse or drop
+           → WG Shield servers → LAN & special ranges → lists (Outgoing/Both)
+           → refuse or drop
 
 incoming   loopback → your advanced rules → replies to the phone's own
-           connections → allowlist, DNSCrypt, LAN → lists (Incoming/Both) → drop
+           connections → allowlist, DNSCrypt, WG Shield, LAN
+           → lists (Incoming/Both) → drop
 ```
 
 * Each list is its own ipset set. Lists join a per-direction aggregate (`list:set`), and the firewall rules only reference those aggregates - so adding, removing, updating a list or changing its direction never touches iptables.
@@ -94,7 +97,7 @@ Updating from an earlier version keeps your settings, advanced sets and rules. T
 
 ## Your lists
 
-`/sdcard/ipset-arm64/ip-blocklist.txt` and `ip-allowlist.txt` - one IPv4/IPv6 address or network per line, `#` for comments. Edit them in the WebUI or with any app; changes apply within 10 seconds. Your blocklist has its own direction. The allowlist always wins over every list.
+`/sdcard/ipset-arm64/ip-blocklist.txt` and `ip-allowlist.txt` - one IPv4/IPv6 address or network per line, `#` for comments. Edit them in the WebUI or with any app; changes apply within 10 seconds. An allowlist entry wider than /8 (IPv4) or /16 (IPv6) coming from the sdcard copy is refused (commented out, warning in the log) - any app with "All files access" can write there; add such ranges in the WebUI (they stay when the sdcard copy is edited later). Your blocklist has its own direction. The allowlist always wins over every list.
 
 ## Files
 
@@ -139,7 +142,8 @@ All 16 set types are supported (`hash:net`, `hash:ip,port`, `hash:net,iface`, `b
 ## With DNSCrypt, a VPN, or another firewall
 
 * **[DNSCrypt](https://github.com/nikakvo/dnscrypt-proxy-android-arm64-only) module**: its bootstrap resolvers, connectivity probe and pinned servers are read from its `dnscrypt-proxy.toml` and never blocked, so a list can never take DNS away from the phone. Switching resolvers in the DNSCrypt WebUI is followed within a minute.
-* **VPN**: apps' traffic passes the rules with its real destination before it enters the tunnel, so blocking keeps working with a VPN on. Hotspot devices sent through the VPN by [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) are filtered before they enter the tunnel too. The same holds for [WG Shield Arm64](https://github.com/nikakvo/wg-shield-arm64) (kernel WireGuard without an app) - just make sure a tunnel server is never in your lists (**Check** its address), or the tunnel cannot connect.
+* **VPN**: apps' traffic passes the rules with its real destination before it enters the tunnel, so blocking keeps working with a VPN on. Hotspot devices sent through the VPN by [VPN Hotspot Arm64](https://github.com/nikakvo/vpn-hotspot-arm64) are filtered before they enter the tunnel too. The same holds for [WG Shield Arm64](https://github.com/nikakvo/wg-shield-arm64) (kernel WireGuard without an app).
+* **[WG Shield](https://github.com/nikakvo/wg-shield-arm64) module**: the `Endpoint =` address of each tunnel (only that line is read, never the keys) and the address of the active tunnel are never blocked, so a list can never stop a tunnel from connecting. Added, changed or deleted tunnels are followed within a minute. A tunnel with a host-name endpoint is covered while it is the active one. Switch it off in System (`WGSHIELD_ALLOW=0`).
 * **AFWall+ and others**: the module only adds its own chains and three links; other firewalls' rules are not changed.
 
 ## The networking set

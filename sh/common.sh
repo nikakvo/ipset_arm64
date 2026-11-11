@@ -67,7 +67,7 @@ SAV6="$(_tool ip6tables-save)"
 # ── Settings ─────────────────────────────────────────────────────────────────
 # Parsed, never sourced: only known keys, only plain values. A stray command
 # in the file cannot run as root inside the watchdog; it is simply ignored.
-SETTINGS_KEYS="ENABLED OUT_TARGET FORWARD_BLOCK IPV6 SOURCES DIRECTIONS AUTO_UPDATE DNSCRYPT_ALLOW LOG_KEEP_LINES"
+SETTINGS_KEYS="ENABLED OUT_TARGET FORWARD_BLOCK IPV6 SOURCES DIRECTIONS AUTO_UPDATE DNSCRYPT_ALLOW WGSHIELD_ALLOW LOG_KEEP_LINES"
 
 settings_defaults() {
   ENABLED=1          # master switch: 0 = the module enforces nothing
@@ -78,13 +78,14 @@ settings_defaults() {
   AUTO_UPDATE=off    # off | daily | weekly - the user opts in
   DIRECTIONS=""      # per list: <id>:out|in|both, comma separated (default both)
   DNSCRYPT_ALLOW=1   # never block the resolvers the dnscrypt-proxy module uses
+  WGSHIELD_ALLOW=1   # never block the tunnel servers of the WG Shield module
   LOG_KEEP_LINES=1500
 }
 
 # 0 when <value> is acceptable for <key>
 setting_valid() { # <KEY> <VALUE>
   case "$1" in
-    ENABLED | FORWARD_BLOCK | IPV6 | DNSCRYPT_ALLOW)
+    ENABLED | FORWARD_BLOCK | IPV6 | DNSCRYPT_ALLOW | WGSHIELD_ALLOW)
       case "$2" in 0 | 1) return 0 ;; esac ;;
     OUT_TARGET)
       case "$2" in REJECT | DROP) return 0 ;; esac ;;
@@ -93,20 +94,28 @@ setting_valid() { # <KEY> <VALUE>
     DIRECTIONS)
       [ -z "$2" ] && return 0
       case "$2" in *[!a-z0-9,:-]*) return 1 ;; esac
-      for _sv_i in $(echo "$2" | tr ',' ' '); do
-        case "${_sv_i#*:}" in out | in | both) : ;; *) unset _sv_i; return 1 ;; esac
-        [ "${_sv_i%%:*}" = "user" ] || src_known "${_sv_i%%:*}" || { unset _sv_i; return 1; }
+      # split on "," with the shell itself (no forks: the watchdog reads
+      # the settings every tick); the characters were checked above
+      _sv_o=$IFS; IFS=,; _sv_r=0
+      for _sv_i in $2; do
+        [ -n "$_sv_i" ] || continue   # "a,,b" was accepted before r15 too
+        case "${_sv_i#*:}" in out | in | both) : ;; *) _sv_r=1; break ;; esac
+        [ "${_sv_i%%:*}" = "user" ] || src_known "${_sv_i%%:*}" || { _sv_r=1; break; }
       done
-      unset _sv_i
-      return 0 ;;
+      IFS=$_sv_o
+      unset _sv_i _sv_o
+      return "$_sv_r" ;;
     SOURCES)
       [ "$2" = "none" ] && return 0
       case "$2" in '' | *[!a-z0-9,-]*) return 1 ;; esac
-      for _sv_i in $(echo "$2" | tr ',' ' '); do
-        src_known "$_sv_i" || { unset _sv_i; return 1; }
+      _sv_o=$IFS; IFS=,; _sv_r=0
+      for _sv_i in $2; do
+        [ -n "$_sv_i" ] || continue
+        src_known "$_sv_i" || { _sv_r=1; break; }
       done
-      unset _sv_i
-      return 0 ;;
+      IFS=$_sv_o
+      unset _sv_i _sv_o
+      return "$_sv_r" ;;
     LOG_KEEP_LINES)
       case "$2" in '' | *[!0-9]*) return 1 ;; esac
       [ "$2" -ge 100 ] && [ "$2" -le 20000 ] && return 0 ;;
@@ -176,6 +185,10 @@ DIRECTIONS=
 # uses (read from its dnscrypt-proxy.toml) (1/0).
 DNSCRYPT_ALLOW=1
 
+# If the WG Shield module is installed, never block its tunnel servers
+# (the Endpoint addresses of its tunnels) (1/0).
+WGSHIELD_ALLOW=1
+
 # Automatic list updates: off, daily or weekly. Off by default: nothing
 # is downloaded until you press Update (or switch this on).
 AUTO_UPDATE=off
@@ -194,7 +207,25 @@ mono_now() {
   unset _mn_u _mn_r
 }
 
+# The same, without a fork: sets NOW (the watchdog calls it every tick).
+mono_set() {
+  read -r NOW _mn_r 2>/dev/null < /proc/uptime
+  NOW=${NOW%%.*}
+  unset _mn_r
+}
+
 mtime_of() { stat -c %Y "$1" 2>/dev/null || echo 0; }
+
+# "<mtime>:<size>" of settings.conf: a second write in the same second
+# almost always changes the size, so it is not missed.
+conf_stamp() { stat -c '%Y:%s' "$CONF" 2>/dev/null || echo 0; }
+
+# First line of a file into FL (empty when missing), without a fork.
+first_line() {
+  FL=""
+  read -r FL 2>/dev/null < "$1"
+  return 0
+}
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 # The wall clock is still at 1970 early in boot (before the network time
@@ -239,13 +270,13 @@ rotate_log() {
 LOCK_HELD=0
 
 lock_try() {
-  mkdir -p "$RUN" 2>/dev/null
+  [ -d "$RUN" ] || mkdir -p "$RUN" 2>/dev/null
   if mkdir "$LOCK_DIR" 2>/dev/null; then
     echo $$ > "$LOCK_DIR/pid"
     LOCK_HELD=1
     return 0
   fi
-  _lt_p=$(cat "$LOCK_DIR/pid" 2>/dev/null)
+  first_line "$LOCK_DIR/pid"; _lt_p=$FL
   # No pid yet: the holder has just created the lock. Busy - unless the
   # lock has been without a pid for over a minute (holder killed between
   # mkdir and writing it).
@@ -292,7 +323,8 @@ lock_get() {
 
 lock_release() {
   [ "$LOCK_HELD" = "1" ] || return 0
-  [ "$(cat "$LOCK_DIR/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK_DIR"
+  first_line "$LOCK_DIR/pid"
+  [ "$FL" = "$$" ] && rm -rf "$LOCK_DIR"
   LOCK_HELD=0
 }
 
@@ -338,22 +370,43 @@ dl() { # <url> <out>
 # write for a user edit.
 mirror_to_sd() { # <file name in DATA>
   [ -f "$DATA/$1" ] || return 1
-  [ -d "${SD_DIR%/*}" ] || return 1
+  [ -d "${SD_DIR%/*}/Android" ] || return 1   # shared storage mounted (sd_ready)
   mkdir -p "$SD_DIR" 2>/dev/null || return 1
   cp -f "$DATA/$1" "$SD_DIR/$1" 2>/dev/null || return 1
   touch -r "$SD_DIR/$1" "$DATA/$1" 2>/dev/null
+}
+
+# ── Notification ─────────────────────────────────────────────────────────────
+# Best effort, through Android's notification service ("cmd notification",
+# shown as coming from the Shell app). Posted as the shell user: on his
+# phone (HyperOS) a post as root returns 0 but never appears; as uid 2000
+# it does (tested on the phone). <tag> <title> <text>
+_nq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+notify() {
+  command -v cmd >/dev/null 2>&1 || return 0
+  _nf_c="cmd notification post -S bigtext -t $(_nq "$2") $(_nq "$1") $(_nq "$3")"
+  if [ "$(id -u)" = "0" ] && command -v su >/dev/null 2>&1 &&
+    su 2000 -c "$_nf_c" >/dev/null 2>&1; then
+    unset _nf_c; return 0
+  fi
+  eval "$_nf_c" >/dev/null 2>&1
+  unset _nf_c
+  return 0
 }
 
 # ── Module status line ───────────────────────────────────────────────────────
 set_module_status() {
   [ -f "$MODPROP" ] || return 0
   _ms_d="IP-level blocklists (ipset + iptables/ip6tables) | $1"
-  sed -i "s|^description=.*|description=$_ms_d|" "$MODPROP" 2>/dev/null
-  unset _ms_d
+  # The text holds "|" (the sed delimiter) and may hold "&" or "\":
+  # escape them, or sed fails and the card keeps the old status.
+  _ms_e=$(printf '%s' "$_ms_d" | sed 's/[\\&|]/\\&/g')
+  sed -i "s|^description=.*|description=$_ms_e|" "$MODPROP" 2>/dev/null
+  unset _ms_d _ms_e
 }
 
 # ── Libraries ────────────────────────────────────────────────────────────────
-for _lib in sets sources dnscrypt rules; do
+for _lib in sets sources dnscrypt wgshield rules; do
   if [ -f "$MODDIR/sh/$_lib.sh" ]; then
     # shellcheck source=/dev/null
     . "$MODDIR/sh/$_lib.sh"

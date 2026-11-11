@@ -1,7 +1,7 @@
 id=ipset_arm64
 name=ipset (arm64)
-version=v7.24-r14
-versionCode=14
+version=v7.24-r15
+versionCode=15
 author=Tears Burn
 description=IP-level blocklists (ipset + iptables/ip6tables) | installed
 updateJson=https://raw.githubusercontent.com/nikakvo/ipset-arm64/main/update.json

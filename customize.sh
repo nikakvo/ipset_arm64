@@ -53,6 +53,10 @@ if [ -f "$CONF" ]; then
   if ! grep -q '^DNSCRYPT_ALLOW=' "$CONF"; then
     printf '\n# If the dnscrypt-proxy module is installed, never block the resolvers it\n# uses (read from its dnscrypt-proxy.toml) (1/0).\nDNSCRYPT_ALLOW=1\n' >> "$CONF"
   fi
+  if ! grep -q '^WGSHIELD_ALLOW=' "$CONF"; then
+    printf '\n# If the WG Shield module is installed, never block its tunnel servers\n# (the Endpoint addresses of its tunnels) (1/0).\nWGSHIELD_ALLOW=1\n' >> "$CONF"
+    ui_print "  + WGSHIELD_ALLOW=1"
+  fi
   if ! grep -q '^AUTO_UPDATE=' "$CONF"; then
     printf '\n# Automatic list updates: off, daily or weekly.\nAUTO_UPDATE=off\n' >> "$CONF"
     ui_print "  + AUTO_UPDATE=off"

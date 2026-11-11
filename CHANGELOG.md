@@ -2,6 +2,22 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r15
+
+Lighter, and safe with WG Shield.
+
+* **WG Shield servers are never blocked** - the server address of each [WG Shield](https://github.com/nikakvo/wg-shield-arm64) tunnel (only its `Endpoint =` line is read, never the keys) and the address of the active tunnel are kept reachable, like the DNSCrypt resolvers, so a list can never stop a tunnel from connecting. New, changed or deleted tunnels are followed within a minute. Switch: System → *Protect WG Shield servers* (`WGSHIELD_ALLOW`, on by default). Without WG Shield nothing changes
+* **The module card shows the real status** - it always said *installed*; it now shows *Protected (IPv4 + IPv6)*, *Paused*, *Switched off* and so on, as the WebUI does
+* **Lighter watchdog** - its 10-second check starts far fewer programs; on a Poco F6 Pro one check costs a fraction of before (same-time comparison on the phone: 3 to 5 times less CPU per check). *Refresh status* in the WebUI answers faster (755 → 545 ms measured)
+* **Notification when automatic list updates keep failing** - after the 3rd failed automatic update of a list in a row (once, not on every retry). The last good copy stays active
+* **sdcard allowlist hardened** - any app with *All files access* can write `/sdcard/ipset-arm64/`. An allowlist entry wider than /8 (IPv4) or /16 (IPv6) coming from there (for example `0.0.0.0/1`, which would let everything through) is refused: commented out in both copies, with a warning in the log. Wide ranges you really want can still be added in the WebUI, and they stay when the sdcard copy is edited later
+* **Your sdcard copies are no longer overwritten at boot** - the watchdog starts before Android mounts the shared storage; it now waits for it instead of re-creating the files and then copying over your real ones
+* **Quieter shutdowns** - if `ipset` or `iptables-save` cannot run for a moment (the second before a reboot), the check now waits for the next round instead of rebuilding everything and logging errors
+* Two update starts at the same moment (automatic + a tap in the WebUI) can no longer collide; a settings edit in the same second as the previous one is no longer missed
+* Text fields in the WebUI stay visible above the on-screen keyboard
+
+---
+
 ## v7.24-r14
 
 LAN Cloak joins the networking set.

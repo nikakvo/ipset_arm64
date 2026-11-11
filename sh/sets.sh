@@ -172,14 +172,29 @@ list_load() { # <allow|user> <family>
 }
 
 # ── Managed sets ─────────────────────────────────────────────────────────────
-MANAGED_SETS="ipsa_lan4 ipsa_allow4 ipsa_user4 ipsa_out4 ipsa_in4 ipsa_dnsc4 ipsa_lan6 ipsa_allow6 ipsa_user6 ipsa_out6 ipsa_in6 ipsa_dnsc6"
+MANAGED_SETS="ipsa_lan4 ipsa_allow4 ipsa_user4 ipsa_out4 ipsa_in4 ipsa_dnsc4 ipsa_wgs4 ipsa_lan6 ipsa_allow6 ipsa_user6 ipsa_out6 ipsa_in6 ipsa_dnsc6 ipsa_wgs6"
 
-managed_missing() { # prints the managed sets that do not exist
-  _mm_have=$("$IPSET" list -n 2>/dev/null)
+# The managed sets that do not exist, space separated, in MM. One
+# "ipset list -n", the rest without forks (the watchdog runs it every tick).
+managed_missing_v() {
+  _mm_have="
+$("$IPSET" list -n 2>/dev/null)
+"
+  MM=""
   for _mm_s in $MANAGED_SETS; do
-    echo "$_mm_have" | grep -qx "$_mm_s" || echo "$_mm_s"
+    case "$_mm_have" in
+      *"
+$_mm_s
+"*) : ;;
+      *) MM="${MM:+$MM }$_mm_s" ;;
+    esac
   done
   unset _mm_have _mm_s
+}
+managed_missing() { # prints the managed sets that do not exist
+  managed_missing_v
+  for _mm_s in $MM; do echo "$_mm_s"; done
+  unset _mm_s
 }
 
 _lan_load() { # <family>
@@ -216,6 +231,11 @@ sets_ensure() { # [reload 0|1]
       "$IPSET" create "ipsa_dnsc$_se_f" hash:net family "$(fam_name "$_se_f")" 2>/dev/null ||
         { _se_rc=1; log_error "could not create ipsa_dnsc$_se_f"; }
       rm -f "$RUN/dnsc.mtime"   # new, empty set: fill it below
+    fi
+    if ! set_exists "ipsa_wgs$_se_f"; then
+      "$IPSET" create "ipsa_wgs$_se_f" hash:net family "$(fam_name "$_se_f")" 2>/dev/null ||
+        { _se_rc=1; log_error "could not create ipsa_wgs$_se_f"; }
+      rm -f "$RUN/wgs.stamp"    # new, empty set: fill it below
     fi
   done
   unset _se_f _se_fn _se_l _se_d
@@ -262,7 +282,7 @@ linked_as() { # <set> <family> <out|in|both>
 # them must be gone first, or the kernel refuses.
 sets_destroy_managed() {
   for _sd_f in 4 6; do
-    for _sd_s in "ipsa_out$_sd_f" "ipsa_in$_sd_f" "ipsa_block$_sd_f" "ipsa_dnsc$_sd_f" "ipsa_allow$_sd_f" "ipsa_user$_sd_f" "ipsa_lan$_sd_f"; do
+    for _sd_s in "ipsa_out$_sd_f" "ipsa_in$_sd_f" "ipsa_block$_sd_f" "ipsa_dnsc$_sd_f" "ipsa_wgs$_sd_f" "ipsa_allow$_sd_f" "ipsa_user$_sd_f" "ipsa_lan$_sd_f"; do
       "$IPSET" destroy "$_sd_s" 2>/dev/null
       "$IPSET" destroy "${_sd_s}_n" 2>/dev/null
     done
@@ -428,27 +448,88 @@ user_sets_restore() {
 # Called by the watchdog with the lock held. A newer copy on the sdcard is a
 # user edit: take it and reload the list. A newer copy in $DATA is the
 # module's own write: mirror it out. A missing sdcard copy is seeded.
-# Prints what it did (nothing when nothing changed).
-sd_sync() {
-  [ -d "${SD_DIR%/*}" ] || return 0
+# What it did goes to SY_OUT, one line per action (empty when nothing
+# changed); sd_sync prints it. One stat for all four files per call.
+# Comment out entries wider than /8 (IPv4) or /16 (IPv6) in <file>; prints
+# how many. Only for the allowlist taken from the sdcard copy. An entry that
+# was already in <previous copy> (added in the WebUI, or kept from before)
+# stays: only new wide entries written on the sdcard are refused.
+sd_refuse_wide() { # <file> [previous copy]
+  [ -f "${2:-}" ] || set -- "$1" /dev/null
+  awk '
+    function key(x) { sub(/#.*/, "", x); gsub(/[ \t\r]/, "", x); return tolower(x) }
+    FILENAME == ARGV[1] { k = key($0); if (k != "") old[k] = 1; next }
+    {
+      l = $0; e = key(l); w = 0
+      s = index(e, "/")
+      if (e != "" && s > 0 && !(e in old)) {
+        p = substr(e, s + 1) + 0
+        if (e ~ /:/) { if (p < 16) w = 1 } else if (p < 8) w = 1
+      }
+      if (w) { print "# refused (wider than /8 or /16, from the sdcard copy): " e; n++ } else print l
+    }
+    END { print n + 0 > "/dev/stderr" }' "$2" "$1" > "$1.tmp" 2> "$1.n"
+  first_line "$1.n"
+  # rewrite only when something was refused: the file keeps the sdcard
+  # copy's mtime otherwise (a rewrite would look like a new edit)
+  case "$FL" in '' | 0) FL=0 ;; *) cat "$1.tmp" > "$1" ;; esac
+  echo "$FL"
+  rm -f "$1.tmp" "$1.n"
+}
+_sy_mt() { # <path> -> MT, from the stat output in _sy_st
+  case "$_sy_st" in
+    *" $1"*) MT=${_sy_st%%" $1"*}; MT=${MT##*"
+"} ;;
+    *) MT=$(mtime_of "$1") ;;
+  esac
+}
+# The real shared storage is mounted (FUSE) a few seconds after the watchdog
+# starts; before that /storage/emulated/0 can exist as an empty mount point.
+# Seeding there would write into that hidden folder, and the first sync
+# after the mount would then overwrite the real sdcard copies (seen on the
+# phone at every boot). Android/ exists only on the mounted storage.
+sd_ready() { [ -d "${SD_DIR%/*}/Android" ]; }
+sd_sync_v() {
+  SY_OUT=""
+  sd_ready || return 0
+  _sy_st=""
+  for _sy_n in $SD_FILES; do _sy_st="$_sy_st $DATA/$_sy_n $SD_DIR/$_sy_n"; done
+  # shellcheck disable=SC2086  # fixed paths without spaces
+  _sy_st=$(stat -c '%Y %n' $_sy_st 2>/dev/null)
   for _sy_n in $SD_FILES; do
     _sy_d="$DATA/$_sy_n"; _sy_s="$SD_DIR/$_sy_n"
     [ -f "$_sy_d" ] || : > "$_sy_d"
     if [ ! -f "$_sy_s" ]; then
-      mirror_to_sd "$_sy_n" && echo "seeded $_sy_s"
+      mirror_to_sd "$_sy_n" && SY_OUT="${SY_OUT:+$SY_OUT
+}seeded $_sy_s"
       continue
     fi
-    _sy_md=$(mtime_of "$_sy_d"); _sy_ms=$(mtime_of "$_sy_s")
+    _sy_mt "$_sy_d"; _sy_md=$MT; _sy_mt "$_sy_s"; _sy_ms=$MT
     if [ "$_sy_ms" -gt "$_sy_md" ]; then
+      case "$_sy_n" in ip-allowlist.txt) _sy_l=allow ;; *) _sy_l=user ;; esac
+      # the allowlist as it was before this edit (see sd_refuse_wide)
+      [ "$_sy_l" = "allow" ] && cp -f "$_sy_d" "$RUN/sd.prev" 2>/dev/null
       cp -f "$_sy_s" "$_sy_d" 2>/dev/null || continue
       touch -r "$_sy_s" "$_sy_d" 2>/dev/null
-      case "$_sy_n" in ip-allowlist.txt) _sy_l=allow ;; *) _sy_l=user ;; esac
+      if [ "$_sy_l" = "allow" ]; then
+        # Any app with "All files access" can write the sdcard copy. A very
+        # wide allowlist entry from there (0.0.0.0/1 + 128.0.0.0/1 lets
+        # everything through) is refused: commented out in both copies.
+        _sy_w=$(sd_refuse_wide "$_sy_d" "$RUN/sd.prev")
+        rm -f "$RUN/sd.prev"
+        if [ "${_sy_w:-0}" -gt 0 ]; then
+          mirror_to_sd "$_sy_n"
+          log_warn "sdcard: refused $_sy_w allowlist entr$([ "$_sy_w" = 1 ] && echo y || echo ies) wider than /8 (IPv4) or /16 (IPv6) - add such ranges in the WebUI if you really mean it"
+        fi
+      fi
       list_load "$_sy_l" 4 >/dev/null
       list_load "$_sy_l" 6 >/dev/null
-      echo "applied edit of $_sy_s ($(list_count "$_sy_l") entries)"
+      SY_OUT="${SY_OUT:+$SY_OUT
+}applied edit of $_sy_s ($(list_count "$_sy_l") entries)"
     elif [ "$_sy_md" -gt "$_sy_ms" ]; then
       mirror_to_sd "$_sy_n"
     fi
   done
-  unset _sy_n _sy_d _sy_s _sy_md _sy_ms _sy_l
+  unset _sy_n _sy_d _sy_s _sy_md _sy_ms _sy_l _sy_st _sy_w MT
 }
+sd_sync() { sd_sync_v; [ -n "$SY_OUT" ] && echo "$SY_OUT"; return 0; }

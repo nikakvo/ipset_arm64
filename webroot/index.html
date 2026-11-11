@@ -1286,6 +1286,7 @@ async function checkIp(ipArg) {
     case 'blocked_in': v = 'Blocked incoming'; cls = 'a'; why = `Connections it starts towards this phone are dropped. Connections this phone opens to it still work (their replies are let through). Incoming: ${names(r.blocked_in_by)}.`; break;
     case 'allowed_allowlist': v = 'Allowed'; cls = 'g'; why = 'It is on your allowlist' + (listed ? `, which wins over ${listed}.` : '.'); break;
     case 'allowed_dnscrypt': v = 'Never blocked'; cls = 'g'; why = 'dnscrypt-proxy uses this address (a resolver or its bootstrap). It is kept reachable so this phone never loses DNS' + (listed ? `, even though ${listed} lists it.` : '.'); break;
+    case 'allowed_wgshield': v = 'Never blocked'; cls = 'g'; why = 'A server of one of your WG Shield tunnels. It is kept reachable so the tunnel can always connect' + (listed ? `, even though ${listed} lists it.` : '.'); break;
     case 'allowed_special_range': v = 'Never blocked'; cls = 'g'; why = 'A local or special-purpose address (LAN, loopback, carrier NAT, multicast…). The lists never block these.'; break;
     default: v = 'Not listed'; cls = 'm'; why = 'None of the active lists contains this address; its traffic passes.';
   }
@@ -1599,6 +1600,11 @@ function renderStatus(s) {
   const dn = s.dnscrypt === 'found' ? `${num(s.dnscrypt_addrs)} address${num(s.dnscrypt_addrs) === 1 ? '' : 'es'} of its resolvers are never blocked`
     : s.dnscrypt === 'absent' ? 'The dnscrypt-proxy module is not installed' : 'Off - the lists may block its resolvers';
   g += rowCtl('Protect DNSCrypt resolvers', dn, sw('sw-dnsc', yes(s.dnscrypt_setting), "setSetting('DNSCRYPT_ALLOW', this.checked ? 1 : 0, this)"));
+  const wh = num(s.wgshield_hostnames);
+  const wn = s.wgshield === 'found' ? `${num(s.wgshield_addrs)} server address${num(s.wgshield_addrs) === 1 ? '' : 'es'} of its tunnels are never blocked` +
+      (wh ? ` (${wh} tunnel${wh === 1 ? ' uses' : 's use'} a host name: only the active one is known)` : '')
+    : s.wgshield === 'absent' ? 'The WG Shield module is not installed' : 'Off - the lists may block a tunnel server';
+  g += rowCtl('Protect WG Shield servers', wn, sw('sw-wgs', yes(s.wgshield_setting), "setSetting('WGSHIELD_ALLOW', this.checked ? 1 : 0, this)"));
   $('sys-settings').innerHTML = g;
   document.querySelectorAll('#tgt-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === s.out_target));
 
@@ -1699,6 +1705,25 @@ function refreshNow() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();
 
+
+// Keep a text field visible when the on-screen keyboard opens: the WebView
+// gets shorter, but the tab's scroll position stays, so a field near the
+// bottom (Check, allow/block add, View search, Advanced) could end up
+// hidden under the keyboard. (Same handler as the DNSCrypt module.)
+(function () {
+  let t = 0;
+  function keep() {
+    const el = document.activeElement;
+    if (!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
+    const r = el.getBoundingClientRect(), h = window.visualViewport ? visualViewport.height : window.innerHeight;
+    if (r.top >= 8 && r.bottom <= h - 8) return;
+    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) { el.scrollIntoView(false); }
+  }
+  function later(ms) { clearTimeout(t); t = setTimeout(keep, ms); }
+  window.addEventListener('resize', () => later(120));
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => later(120));
+  document.addEventListener('focusin', e => { if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) later(400); });
+})();
 </script>
 </body>
 </html>

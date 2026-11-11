@@ -170,8 +170,9 @@
 2 your adv. rules     as written
 3 your allowlist      <i>pass</i>
 4 DNSCrypt resolvers  <i>pass</i>
-5 LAN, special        <i>pass</i>
-6 Outgoing/Both lists <u>stop</u>
+5 WG Shield servers   <i>pass</i>
+6 LAN, special        <i>pass</i>
+7 Outgoing/Both lists <u>stop</u>
 
 <b>incoming</b>  internet → phone
 1 loopback            <i>pass</i>
@@ -179,7 +180,8 @@
 3 replies to the
   phone's own conns   <i>pass</i>
 4 allowlist, DNSCrypt,
-  LAN, special        <i>pass</i>
+  WG Shield, LAN,
+  special             <i>pass</i>
 5 Incoming/Both lists <u>drop</u></div>
   <h3>What is never blocked</h3>
   <p>Loopback, private LAN ranges (<code>10/8</code>, <code>172.16/12</code>, <code>192.168/16</code>), carrier NAT (<code>100.64/10</code>), link-local, multicast and the other special-purpose ranges. Some lists include them because they were made for routers at the edge of a network; on a phone they would cut you off from your own Wi-Fi router. The module removes every list entry that overlaps them.</p>
@@ -277,7 +279,7 @@
     <tr><td><span class="pill bad">Blocked outgoing</span></td><td>Only on lists set to Outgoing.</td></tr>
     <tr><td><span class="pill warn">Blocked incoming</span></td><td>Only on lists set to Incoming.</td></tr>
     <tr><td><span class="pill ok">Allowed</span></td><td>On your allowlist, which wins over every list.</td></tr>
-    <tr><td><span class="pill ok">Never blocked</span></td><td>A LAN or special-purpose address, or one the DNSCrypt module needs.</td></tr>
+    <tr><td><span class="pill ok">Never blocked</span></td><td>A LAN or special-purpose address, or one the DNSCrypt or WG Shield module needs.</td></tr>
     <tr><td><span class="pill skip">Not listed</span></td><td>No active list holds it; its traffic passes.</td></tr>
   </table></div>
   <h3>Test connection</h3>
@@ -300,7 +302,7 @@
     <li><strong>Your blocklist</strong> works like one more list, with its own direction (Outgoing / Incoming / Both).</li>
     <li><strong>Your allowlist</strong> always wins: an address on it is never blocked by any list, in either direction. Use it for a site a list blocks by mistake.</li>
   </ul>
-  <p>Both are plain text files, also kept in <code>/sdcard/ipset-arm64/</code> - <code>ip-blocklist.txt</code> and <code>ip-allowlist.txt</code>. Edit them with any app; the watchdog applies your changes within about 10 seconds. Lines starting with <code>#</code> are comments; invalid lines are skipped and counted in the log.</p>
+  <p>Both are plain text files, also kept in <code>/sdcard/ipset-arm64/</code> - <code>ip-blocklist.txt</code> and <code>ip-allowlist.txt</code>. Edit them with any app; the watchdog applies your changes within about 10 seconds. Lines starting with <code>#</code> are comments; invalid lines are skipped and counted in the log. Any app with "All files access" can write the sdcard copy, so an allowlist entry wider than <code>/8</code> (IPv4) or <code>/16</code> (IPv6) that comes from there is refused: it is commented out in both copies and a warning goes to the log. Add such a range in the WebUI if you really mean it; ranges already on the list stay when you edit the sdcard copy later.</p>
 </div>
 
 <!-- 10 -->
@@ -332,6 +334,7 @@
     <tr><td>Filter IPv6</td><td>Apply the lists to IPv6 as well. On by default.</td></tr>
     <tr><td>Filter hotspot clients</td><td>Apply the lists (their outgoing direction) to devices using this phone's hotspot or USB tethering. Off by default.</td></tr>
     <tr><td>Protect DNSCrypt resolvers</td><td>Never block the addresses the DNSCrypt module uses - see section 15. On by default.</td></tr>
+    <tr><td>Protect WG Shield servers</td><td>Never block the servers of your WG Shield tunnels - see section 15. On by default.</td></tr>
     <tr><td>Refuse at once / Drop silently</td><td>What happens to an outgoing connection to a blocked address. <strong>Refuse</strong>: the app gets an error immediately (TCP is answered with a reset, the rest with an ICMP error). <strong>Drop</strong>: the packet vanishes and the app waits for its own timeout. Incoming packets from blocked addresses are always dropped.</td></tr>
   </table></div>
   <h3>Re-apply rules</h3>
@@ -375,6 +378,7 @@
     <tr><td>IPV6</td><td><code>1</code> / <code>0</code> - filter IPv6</td></tr>
     <tr><td>FORWARD_BLOCK</td><td><code>1</code> / <code>0</code> - filter hotspot clients</td></tr>
     <tr><td>DNSCRYPT_ALLOW</td><td><code>1</code> / <code>0</code> - protect DNSCrypt's resolvers</td></tr>
+    <tr><td>WGSHIELD_ALLOW</td><td><code>1</code> / <code>0</code> - protect WG Shield's tunnel servers</td></tr>
     <tr><td>LOG_KEEP_LINES</td><td>100 – 20000</td></tr>
   </table></div>
   <p>The file is read, never executed: unknown keys and invalid values are ignored and the default is used.</p>
@@ -421,8 +425,10 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTP
   <h3>DNSCrypt module</h3>
   <p>If <strong>dnscrypt-proxy-android-arm64-only</strong> is installed, this module reads its configuration and never blocks the addresses it depends on: its bootstrap resolvers, its connectivity probe address and the servers pinned in its <code>[static]</code> section. Otherwise a list that happened to contain one of them would take DNS away from the whole phone. When you switch resolvers in the DNSCrypt WebUI, this module follows within a minute. System shows how many addresses are protected; the switch there turns this off.</p>
   <p>A resolver reached by hostname only (a DoH server without an address in its stamp) has no fixed address to protect; its address is looked up through the bootstrap resolvers, which are protected.</p>
+  <h3>WG Shield module</h3>
+  <p>If <strong>WG Shield</strong> is installed, this module reads the <code>Endpoint =</code> line of each of its tunnels (nothing else from those files - never the keys) and never blocks those servers, so a list can never stop a tunnel from connecting. A tunnel whose endpoint is a host name has no fixed address in its file; for the active tunnel the address WG Shield really connected to is protected as well. New, changed or deleted tunnels are followed within a minute. System shows how many addresses are protected; the switch there turns this off.</p>
   <h3>VPN</h3>
-  <p>Apps' traffic still passes the module's rules with its real destination before it enters the VPN tunnel, so blocking keeps working with a VPN on. The VPN server's own address is only blocked if a list contains it; if that happens, put it on your allowlist.</p>
+  <p>Apps' traffic still passes the module's rules with its real destination before it enters the VPN tunnel, so blocking keeps working with a VPN on. The server of another VPN app is only blocked if a list contains it; if that happens, put it on your allowlist.</p>
   <h3>LAN Cloak</h3>
   <p>The module of the same set that hides the phone on the Wi-Fi network (no device name in DHCP, no mDNS / SSDP / LLMNR announcements) uses its own chains and never touches this module's sets or chains; System → Health only shows its state.</p>
   <h3>Other firewalls</h3>

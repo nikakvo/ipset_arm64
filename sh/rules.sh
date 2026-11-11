@@ -118,6 +118,7 @@ _base_render() { # <family> <outgoing target>
   echo "-A IPSA_OUT -j IPSA_ADV_OUT"
   echo "-A IPSA_OUT -m set --match-set ipsa_allow$1 dst -j RETURN"
   echo "-A IPSA_OUT -m set --match-set ipsa_dnsc$1 dst -j RETURN"
+  echo "-A IPSA_OUT -m set --match-set ipsa_wgs$1 dst -j RETURN"
   echo "-A IPSA_OUT -m set --match-set ipsa_lan$1 dst -j RETURN"
   _br_block IPSA_OUT "$1" dst "$2" ipsa_out
   echo "-A IPSA_IN -i lo -j RETURN"
@@ -125,6 +126,7 @@ _base_render() { # <family> <outgoing target>
   [ "$(ct_ok "$1")" = "1" ] && echo "-A IPSA_IN -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN"
   echo "-A IPSA_IN -m set --match-set ipsa_allow$1 src -j RETURN"
   echo "-A IPSA_IN -m set --match-set ipsa_dnsc$1 src -j RETURN"
+  echo "-A IPSA_IN -m set --match-set ipsa_wgs$1 src -j RETURN"
   echo "-A IPSA_IN -m set --match-set ipsa_lan$1 src -j RETURN"
   echo "-A IPSA_IN -m set --match-set ipsa_in$1 src -j DROP"
   echo "-A IPSA_FWD -j IPSA_ADV_FWD"
@@ -292,8 +294,18 @@ ipt_dump() { # <family> [-c]  -> filter table, iptables-save format
 # Everything of the module in one family's filter table, as one checksum.
 # Only the "-A" lines: chain declarations differ between iptables-save and
 # -S, and a jump or rule is what matters.
+rules_sig_v() { # <family> -> SIG, and SIG_OK=1 when the table could be read
+  _rs_d=$(ipt_dump "$1")
+  # A readable filter table always names OUTPUT (":OUTPUT ACCEPT" or
+  # "-P OUTPUT"). Empty output = the tool failed (e.g. while the phone
+  # shuts down), which is not "rules changed from outside".
+  case "$_rs_d" in *OUTPUT*) SIG_OK=1 ;; *) SIG_OK=0 ;; esac
+  SIG=$(printf '%s\n' "$_rs_d" | grep '^-A .*IPSA_' | cksum)
+  SIG="${SIG%%[ 	]*}${SIG##*[ 	]}"   # "crc size" -> "crcsize"
+  unset _rs_d
+}
 rules_sig() { # <family>
-  ipt_dump "$1" | grep '^-A .*IPSA_' | cksum | tr -d ' \t'
+  rules_sig_v "$1"; echo "$SIG"
 }
 
 # jump_present <family> <parent> <chain>, on a dump in $2... kept simple:
@@ -340,6 +352,7 @@ rules_apply() { # [family]
   legacy_feed_migrate_files
   sources_sync
   if dnsc_changed; then _ra_d=$(dnsc_sync); log_info "dnscrypt: $_ra_d"; fi
+  if wgs_changed; then _ra_d=$(wgs_sync); log_info "wg-shield: $_ra_d"; fi
 
   _ra_rc=0
   if [ "$_ra_only" != "6" ]; then
@@ -363,7 +376,7 @@ rules_apply() { # [family]
 
   legacy_feed_migrate_set
   mono_now > "$RUN/applied_at"
-  [ -z "$_ra_only" ] && mtime_of "$CONF" > "$APPLIED_CONF_MTIME"
+  [ -z "$_ra_only" ] && conf_stamp > "$APPLIED_CONF_MTIME"
   _ra_r=$_ra_rc
   unset _ra_active _ra_rc _ra_only _ra_d
   return "$_ra_r"

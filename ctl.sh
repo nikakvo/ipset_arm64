@@ -99,7 +99,7 @@ overall_state() {
 }
 
 # A settings change that needs no rebuild: tell the watchdog it is handled.
-_settings_seen() { mtime_of "$CONF" > "$APPLIED_CONF_MTIME"; }
+_settings_seen() { conf_stamp > "$APPLIED_CONF_MTIME"; }
 
 # After a change: apply, then report what the firewall is actually in.
 apply_and_report() {
@@ -261,6 +261,13 @@ cmd_status() {
   else echo "dnscrypt=absent"; fi
   echo "dnscrypt_setting=$DNSCRYPT_ALLOW"
   echo "dnscrypt_addrs=$(( $(set_count ipsa_dnsc4) + $(set_count ipsa_dnsc6) ))"
+  if [ "$WGSHIELD_ALLOW" != "1" ]; then echo "wgshield=off"
+  elif wgs_present; then echo "wgshield=found"
+  else echo "wgshield=absent"; fi
+  echo "wgshield_setting=$WGSHIELD_ALLOW"
+  echo "wgshield_addrs=$(( $(set_count ipsa_wgs4) + $(set_count ipsa_wgs6) ))"
+  first_line "$RUN/wgs.hostnames"
+  echo "wgshield_hostnames=${FL:-0}"
   lanc_keys
   echo "adv_sets=$(own_list | grep -c .)"
   echo "adv_rules=$(grep -c . "$RULES" 2>/dev/null || echo 0)"
@@ -282,6 +289,7 @@ cmd_check() {
   _c_allow=$(intest "ipsa_allow$_c_f")
   _c_user=$(intest "ipsa_user$_c_f")
   _c_dnsc=$(intest "ipsa_dnsc$_c_f")
+  _c_wgs=$(intest "ipsa_wgs$_c_f")
   echo "ok=1"
   echo "ip=$_c_ip"
   echo "family=$_c_f"
@@ -289,6 +297,7 @@ cmd_check() {
   echo "in_allowlist=$_c_allow"
   echo "in_blocklist=$_c_user"
   echo "dnscrypt_resolver=$_c_dnsc"
+  echo "wgshield_server=$_c_wgs"
   echo "note_checked=your lists and the enabled sources that are loaded"
   # Advanced sets are matched by your own rules, before any of the above.
   _c_adv=""
@@ -317,6 +326,7 @@ cmd_check() {
   if [ "$_c_lan" = "1" ]; then _c_v=allowed_special_range
   elif [ "$_c_allow" = "1" ]; then _c_v=allowed_allowlist
   elif [ "$_c_dnsc" = "1" ]; then _c_v=allowed_dnscrypt
+  elif [ "$_c_wgs" = "1" ]; then _c_v=allowed_wgshield
   elif [ -n "$_c_blocked_by" ] && [ -n "$_c_in_by" ]; then _c_v=blocked
   elif [ -n "$_c_blocked_by" ]; then _c_v=blocked_out
   elif [ -n "$_c_in_by" ]; then _c_v=blocked_in
@@ -326,7 +336,7 @@ cmd_check() {
   echo "verdict=$_c_v"
   [ "$(overall_state)" = "protected" ] || [ "$(overall_state)" = "partial" ] || echo "note=enforcement is currently $(overall_state)"
   [ -n "$_c_adv" ] && echo "note_advanced=advanced rules are evaluated first and may decide differently"
-  unset _c_ip _c_f _c_lan _c_allow _c_user _c_dnsc _c_adv _c_n _c_sf _c_blocked_by _c_in_by _c_listed _c_v
+  unset _c_ip _c_f _c_lan _c_allow _c_user _c_dnsc _c_wgs _c_adv _c_n _c_sf _c_blocked_by _c_in_by _c_listed _c_v
 }
 
 # ── probe ──────────────────────────────────────────────────────────────────
@@ -555,12 +565,18 @@ cmd__update() { # <manual|auto> [ids]
   _w_ids="$*"
   [ -n "$_w_ids" ] || _w_ids=$(src_enabled | tr '\n' ' ')
   echo "$(_ts) update ($_w_mode): $_w_ids"
-  _w_ok=0; _w_fail=0; _w_failed=""
+  _w_ok=0; _w_fail=0; _w_failed=""; _w_notify=""
   for _w_i in $_w_ids; do
     src_known "$_w_i" || continue
     if src_fetch "$_w_i"; then _w_r=ok; _w_ok=$((_w_ok + 1))
     else _w_r=fail; _w_fail=$((_w_fail + 1)); _w_failed="$_w_failed,$_w_i"; fi
     attempt_note "$_w_i" "$_w_r"
+    # tell the user once per failure streak: at the 3rd automatic failure
+    # in a row (attempts are at least an hour apart), not on every retry
+    if [ "$_w_mode" = "auto" ] && [ "$_w_r" = "fail" ]; then
+      read -r _w_t _w_n 2>/dev/null < "$(_attempt_file "$_w_i")"
+      [ "${_w_n:-0}" = "3" ] && _w_notify="$_w_notify, $(src_field "$_w_i" 3) $(src_field "$_w_i" 4)"
+    fi
     load_settings
     src_is_enabled "$_w_i" || continue
     [ -s "$(src_file "$_w_i")" ] || continue
@@ -592,6 +608,12 @@ cmd__update() { # <manual|auto> [ids]
   } > "$LAST_UPDATE.tmp" && mv -f "$LAST_UPDATE.tmp" "$LAST_UPDATE"
   if [ "$_w_fail" -gt 0 ]; then log_warn "update ($_w_mode): $_w_ok ok, $_w_fail failed - see ctl.sh update-status"
   else log_info "update ($_w_mode): $_w_ok source(s) updated"; fi
+  if [ -n "$_w_notify" ]; then
+    notify ipset-arm64-update "ipset: list update failing" \
+      "The automatic update of ${_w_notify#, } failed 3 times in a row. The last good copy stays active. Open the ipset WebUI (Lists) for the error."
+    log_info "update: notification shown for${_w_notify#,}"
+  fi
+  unset _w_mode _w_ids _w_ok _w_fail _w_failed _w_notify _w_i _w_r _w_t _w_n
   update_unlock
 }
 

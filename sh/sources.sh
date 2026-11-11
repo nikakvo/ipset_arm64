@@ -33,25 +33,67 @@ UPDATE_RESULT="$RUN/update.result"
 LAST_UPDATE="$DATA/cache/.last_update"   # the last update's outcome, kept across reboots
 
 # ── Catalog ──────────────────────────────────────────────────────────────────
-src_ids() { echo "$SRC_CATALOG" | cut -d'|' -f1; }
-src_known() { src_ids | grep -qx "$1"; }
+# Ids, families and set names are read from the catalog once, when this
+# file is sourced (no forks): the watchdog looks them up every tick.
+_src_setname() { # <id> -> SS=ipsa_src_<id with - as _>
+  SS="ipsa_src_"; _sn_t=$1
+  while :; do
+    case "$_sn_t" in
+      *-*) SS="$SS${_sn_t%%-*}_"; _sn_t=${_sn_t#*-} ;;
+      *) SS="$SS$_sn_t"; break ;;
+    esac
+  done
+  unset _sn_t
+}
+SRC_IDS=""      # one id per line, catalog order
+SRC_MAP=" "     # " <id>:<family>:<set> ..."
+while IFS='|' read -r _sc_i _sc_f _sc_r; do
+  [ -n "$_sc_i" ] || continue
+  _src_setname "$_sc_i"
+  SRC_IDS="${SRC_IDS:+$SRC_IDS
+}$_sc_i"
+  SRC_MAP="$SRC_MAP$_sc_i:$_sc_f:$SS "
+done <<EOF
+$SRC_CATALOG
+EOF
+unset _sc_i _sc_f _sc_r SS
+
+# <id> -> SF (family) and SS (set name); returns 1 for an unknown id.
+src_lookup() {
+  case "$SRC_MAP" in
+    *" $1:"*)
+      SS=${SRC_MAP#* "$1":}; SS=${SS%% *}
+      SF=${SS%%:*}; SS=${SS#*:}
+      return 0 ;;
+  esac
+  SF=""; _src_setname "$1"
+  return 1
+}
+
+src_ids() { echo "$SRC_IDS"; }
+src_known() { case "$SRC_MAP" in *" $1:"*) return 0 ;; esac; return 1; }
 src_field() { # <id> <field number>
   echo "$SRC_CATALOG" | awk -F'|' -v id="$1" -v n="$2" '$1 == id { print $n; exit }'
 }
-src_family() { src_field "$1" 2; }
-src_set() { echo "ipsa_src_$(echo "$1" | tr '-' '_')"; }
+src_family() { src_lookup "$1"; echo "$SF"; }
+src_set() { src_lookup "$1"; echo "$SS"; }
 src_file() { echo "$CACHE/$1.txt"; }
 src_meta() { echo "$CACHE/$1.meta"; }
 
 # Enabled ids, one per line, in catalog order (unknown ids are ignored).
 src_enabled() {
   [ "$SOURCES" = "none" ] && return 0
-  for _se_i in $(src_ids); do
+  for _se_i in $SRC_IDS; do
     case ",$SOURCES," in *",$_se_i,"*) echo "$_se_i" ;; esac
   done
   unset _se_i
 }
-src_is_enabled() { src_enabled | grep -qx "$1"; }
+src_is_enabled() {
+  [ "$SOURCES" = "none" ] && return 1
+  src_known "$1" || return 1
+  case ",$SOURCES," in *",$1,"*) return 0 ;; esac
+  return 1
+}
 
 meta_get() { # <id> <key>
   sed -n "s/^$2=//p" "$(src_meta "$1")" 2>/dev/null | head -n 1
@@ -199,8 +241,9 @@ src_unload() { # <id>
 }
 
 src_in_kernel() { # <id> : its set is loaded (linked for some direction)
-  "$IPSET" test "ipsa_out$(src_family "$1")" "$(src_set "$1")" >/dev/null 2>&1 ||
-    "$IPSET" test "ipsa_in$(src_family "$1")" "$(src_set "$1")" >/dev/null 2>&1
+  src_lookup "$1"
+  "$IPSET" test "ipsa_out$SF" "$SS" >/dev/null 2>&1 ||
+    "$IPSET" test "ipsa_in$SF" "$SS" >/dev/null 2>&1
 }
 
 # Bring the kernel in line with SOURCES: load enabled sources that are not
@@ -234,7 +277,7 @@ sources_destroy_all() {
 # One updater at a time (separate from the module lock).
 UPDATE_PENDING="$RUN/update.pending"
 update_running() {
-  _ur_p=$(cat "$UPDATE_LOCK/pid" 2>/dev/null)
+  first_line "$UPDATE_LOCK/pid"; _ur_p=$FL
   if [ -n "$_ur_p" ] && [ -d "/proc/$_ur_p" ]; then unset _ur_p; return 0; fi
   unset _ur_p
   # spawned, but the worker has not taken its lock yet (a few ms; 30 s at
@@ -276,8 +319,24 @@ attempt_note() { # <id> <ok|fail>
 }
 
 # Start the updater detached. <mode> manual|auto, then ids (default: enabled).
+# The check and the pending marker are one step under a short spawn lock
+# (mkdir is atomic), so two callers at the same moment (the watchdog's
+# automatic update and a tap in the WebUI) never both start a worker, and
+# the second one never empties the log of the first.
+UPDATE_SPAWN_LOCK="$RUN/update.spawn"
 update_spawn() { # <mode> [ids...]
-  update_running && return 1
+  if ! mkdir "$UPDATE_SPAWN_LOCK" 2>/dev/null; then
+    # left by a caller that was killed in these few ms: stale after 30 s
+    _us_age=$(( $(date +%s) - $(mtime_of "$UPDATE_SPAWN_LOCK") ))
+    if [ "$_us_age" -ge 30 ] || [ "$_us_age" -lt -30 ]; then
+      rmdir "$UPDATE_SPAWN_LOCK" 2>/dev/null
+      mkdir "$UPDATE_SPAWN_LOCK" 2>/dev/null || { unset _us_age; return 1; }
+    else
+      unset _us_age; return 1
+    fi
+    unset _us_age
+  fi
+  if update_running; then rmdir "$UPDATE_SPAWN_LOCK" 2>/dev/null; return 1; fi
   : > "$UPDATE_LOG"
   rm -f "$UPDATE_RESULT"
   mono_now > "$UPDATE_PENDING"
@@ -286,6 +345,7 @@ update_spawn() { # <mode> [ids...]
   else
     nohup sh "$MODDIR/ctl.sh" _update "$@" < /dev/null >> "$UPDATE_LOG" 2>&1 &
   fi
+  rmdir "$UPDATE_SPAWN_LOCK" 2>/dev/null
   return 0
 }
 
@@ -296,13 +356,13 @@ update_spawn() { # <mode> [ids...]
 # then hourly); a cached one follows the interval by the wall clock once it
 # is sane, and never more than once an hour per source.
 auto_due() {
-  _ad_now=$(mono_now)
-  _ad_out=""
   case "$AUTO_UPDATE" in
     daily) _ad_int=86400 ;;
     weekly) _ad_int=604800 ;;
-    *) unset _ad_now _ad_out; return 0 ;;
+    *) return 0 ;;
   esac
+  _ad_now=$(mono_now)
+  _ad_out=""
   for _ad_i in $(src_enabled); do
     _ad_last=""; _ad_fails=0
     if [ -f "$(_attempt_file "$_ad_i")" ]; then
