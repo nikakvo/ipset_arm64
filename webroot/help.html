@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ipset-arm64 - Help</title>
-  <!-- Loaded without blocking: the page never waits for the network. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" media="print" onload="this.media='all'">
   <style>
     :root {
       --bg: #0d0f10; --bg2: #0a0c0d; --surface: #131618; --surface2: #1a1d20;
@@ -58,7 +56,7 @@
     .box ul, .box ol { margin: 6px 0 10px 18px; }
     .box li { margin-bottom: 5px; }
     strong { color: var(--hi); font-weight: 600; }
-    code { font-family: var(--mono); font-size: 12px; color: var(--amber); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; word-break: break-all; }
+    code { font-family: var(--mono); font-size: 12px; color: var(--amber); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; overflow-wrap: anywhere; }
     pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 12px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--text); margin: 8px 0; white-space: pre; }
     pre .cm { color: var(--dim); }
 
@@ -88,6 +86,42 @@
     .footer a { color: var(--cyan); text-decoration: none; }
     @media (prefers-reduced-motion: reduce) { .logo .ring { animation: none; } }
     a:focus-visible, button:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
+  
+    /* Commands: mac-style box; COPY copies one command, never its comment */
+    .code-block { --cb: var(--cyan); background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+    .code-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    .code-label { font-family: var(--mono); font-size: 9.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .code-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .code-dots { display: flex; gap: 4px; }
+    .code-dot { width: 7px; height: 7px; border-radius: 50%; display: block; }
+    .code-dot:nth-child(1) { background: #ff5f57; }
+    .code-dot:nth-child(2) { background: #febc2e; }
+    .code-dot:nth-child(3) { background: #28c840; }
+    .copy-btn { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; background: transparent; border: 1px solid var(--border2); color: var(--cb); border-radius: 4px; padding: 3px 8px; font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .05em; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .copy-btn:active { background: var(--surface2); }
+    .copy-btn.copied { color: #28c840; border-color: rgba(40,200,64,.45); }
+    .copy-btn.failed { color: var(--red); border-color: var(--red); }
+    .code-block pre { margin: 0; border: 0; border-radius: 0; background: transparent; padding: 0; white-space: pre-wrap; overflow-wrap: break-word; overflow-x: visible; }
+    .code-body { padding: 10px 12px; }
+    .cmd-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .cmd-row:last-child { border-bottom: 0; }
+    .cmd-main { flex: 1; min-width: 0; }
+    .code-block pre .sub { color: var(--cb); }
+    .cmd-note { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+    /* Back to top */
+    .to-top { position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface2); color: var(--cyan); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; -webkit-tap-highlight-color: transparent; }
+    .to-top.show { opacity: 1; pointer-events: auto; }
+    /* Tables on a phone: each row stacked, the name on top and its text under it */
+    @media (max-width: 640px) {
+      .tw { overflow-x: visible; }
+      .tw table, .tw tbody, .tw tr, .tw td { display: block; width: 100%; }
+      .tw tr.th-row { display: none; }
+      .tw tr { padding: 9px 0; border-bottom: 1px solid var(--border); }
+      .tw tr:last-child { border-bottom: none; }
+      .tw td { border-bottom: none; padding: 0; }
+      .tw td:first-child { white-space: normal; overflow-wrap: anywhere; padding: 0 0 3px; }
+      .tw table.multi td[data-label]::before { content: attr(data-label) ': '; color: var(--dim); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    }
   </style>
 </head>
 <body>
@@ -139,7 +173,7 @@
   <p>The module blocks traffic by <strong>IP address</strong>, using the Linux kernel's <strong>ipset</strong> together with <strong>iptables</strong> (IPv4) and <strong>ip6tables</strong> (IPv6). Lists of known-bad networks - botnets, malware control servers, hijacked address space - are loaded into the kernel, and every connection to or from one of them is stopped.</p>
   <p>DNS blocking (like the DNSCrypt module) stops a name from being looked up. It cannot stop an app that connects to a <strong>hard-coded IP address</strong> without any lookup. Blocking by address does. The two work well together.</p>
   <div class="tw"><table>
-    <tr><th>requirement</th><th></th></tr>
+    <tr class="th-row"><th>requirement</th><th></th></tr>
     <tr><td>CPU</td><td>arm64 only</td></tr>
     <tr><td>Root</td><td>SukiSU Ultra, KernelSU or APatch (WebUI built in). Magisk works too - open the WebUI with MMRL or KSU WebUI Standalone.</td></tr>
     <tr><td>Kernel</td><td><code>CONFIG_IP_SET</code> and <code>CONFIG_NETFILTER_XT_SET</code>. System → Device shows whether your kernel has them. Most GKI kernels do.</td></tr>
@@ -199,7 +233,7 @@
 <div class="box">
   <p>The banner at the top is the answer to "am I protected right now?":</p>
   <div class="tw"><table>
-    <tr><th>banner</th><th>meaning</th></tr>
+    <tr class="th-row"><th>banner</th><th>meaning</th></tr>
     <tr><td><span class="pill ok">Protected</span></td><td>The rules are active, the lists are loaded, on IPv4 and IPv6 (or IPv4 only, if IPv6 filtering is switched off).</td></tr>
     <tr><td><span class="pill warn">No lists</span></td><td>The rules are in place but no list is downloaded yet, so nothing is being blocked. Open Lists and tap Update.</td></tr>
     <tr><td><span class="pill warn">IPv4 only</span></td><td>IPv6 cannot be filtered on this device (see System for the reason). IPv6 traffic passes unchecked.</td></tr>
@@ -216,14 +250,14 @@
 <!-- 5 -->
 <div class="sec-title" id="lists">5 · lists - the blocklists</div>
 <div class="box">
-  <div class="tw"><table>
-    <tr><th>list</th><th>size</th><th>what it holds</th></tr>
-    <tr><td>FireHOL Level 1</td><td>~4,700</td><td><strong>Recommended.</strong> Botnets, malware control servers, hijacked networks - chosen for a minimum of false positives.</td></tr>
-    <tr><td>FireHOL Level 2</td><td>~18,500</td><td>Attacks seen in the last 48 hours. Some false positives possible.</td></tr>
-    <tr><td>FireHOL Level 3</td><td>~12,000</td><td>Attackers, spyware and malware seen in the last 30 days. More false positives.</td></tr>
-    <tr><td>FireHOL Level 4</td><td>~160,000</td><td>Aggressive and very large. Expect some sites or services to break.</td></tr>
-    <tr><td>FireHOL Web client</td><td>~470</td><td>A small list of addresses browsers and apps should never talk to.</td></tr>
-    <tr><td>Spamhaus DROPv6</td><td>~90</td><td><strong>Recommended.</strong> IPv6 networks hijacked or operated by professional cyber-crime.</td></tr>
+  <div class="tw"><table class="multi">
+    <tr class="th-row"><th>list</th><th>size</th><th>what it holds</th></tr>
+    <tr><td>FireHOL Level 1</td><td data-label="size">~4,700</td><td data-label="what it holds"><strong>Recommended.</strong> Botnets, malware control servers, hijacked networks - chosen for a minimum of false positives.</td></tr>
+    <tr><td>FireHOL Level 2</td><td data-label="size">~18,500</td><td data-label="what it holds">Attacks seen in the last 48 hours. Some false positives possible.</td></tr>
+    <tr><td>FireHOL Level 3</td><td data-label="size">~12,000</td><td data-label="what it holds">Attackers, spyware and malware seen in the last 30 days. More false positives.</td></tr>
+    <tr><td>FireHOL Level 4</td><td data-label="size">~160,000</td><td data-label="what it holds">Aggressive and very large. Expect some sites or services to break.</td></tr>
+    <tr><td>FireHOL Web client</td><td data-label="size">~470</td><td data-label="what it holds">A small list of addresses browsers and apps should never talk to.</td></tr>
+    <tr><td>Spamhaus DROPv6</td><td data-label="size">~90</td><td data-label="what it holds"><strong>Recommended.</strong> IPv6 networks hijacked or operated by professional cyber-crime.</td></tr>
   </table></div>
   <p>Sizes change with every update. The FireHOL lists are IPv4 only; public IPv6 blocklists are rare, and Spamhaus DROPv6 is the one used here.</p>
   <h3>Choosing</h3>
@@ -241,7 +275,7 @@
 <div class="box">
   <p>Each list, and your own blocklist, has its own direction:</p>
   <div class="tw"><table>
-    <tr><th>direction</th><th>effect</th></tr>
+    <tr class="th-row"><th>direction</th><th>effect</th></tr>
     <tr><td>Outgoing</td><td>Connections <strong>from this phone</strong> to a listed address are stopped. Something on that address can still reach the phone.</td></tr>
     <tr><td>Incoming</td><td>Connections a listed address <strong>starts towards this phone</strong> are dropped. Connections this phone opens to it still work - their replies are let through.</td></tr>
     <tr><td>Both</td><td>Both of the above. The default.</td></tr>
@@ -257,7 +291,7 @@
   <p><strong>Update lists</strong> downloads every selected list in the background. The log under the button shows each list as it arrives. The rest of the WebUI keeps working meanwhile.</p>
   <h3>Automatic update</h3>
   <div class="tw"><table>
-    <tr><th>setting</th><th>behaviour</th></tr>
+    <tr class="th-row"><th>setting</th><th>behaviour</th></tr>
     <tr><td>Off</td><td>The default. Nothing is ever downloaded unless you tap Update or select a list that has never been downloaded.</td></tr>
     <tr><td>Daily</td><td>Each selected list is refreshed once it is a day old.</td></tr>
     <tr><td>Weekly</td><td>Each selected list is refreshed once it is a week old.</td></tr>
@@ -274,7 +308,7 @@
   <h3>Check</h3>
   <p>Looks an address up in every active list, your own lists and the special ranges, and tells you what the module would do with it. Nothing is sent over the network.</p>
   <div class="tw"><table>
-    <tr><th>verdict</th><th>meaning</th></tr>
+    <tr class="th-row"><th>verdict</th><th>meaning</th></tr>
     <tr><td><span class="pill bad">Blocked</span></td><td>On a list set to Both; both directions are stopped. The lists holding it are named.</td></tr>
     <tr><td><span class="pill bad">Blocked outgoing</span></td><td>Only on lists set to Outgoing.</td></tr>
     <tr><td><span class="pill warn">Blocked incoming</span></td><td>Only on lists set to Incoming.</td></tr>
@@ -285,7 +319,7 @@
   <h3>Test connection</h3>
   <p>Actually connects from the phone to the address - like <code>curl</code> in a terminal - on the port you give (443, HTTPS, by default; 80 is HTTP; any port works). Whether <strong>this module</strong> stopped it is read from its own rule counters, so the answer does not rely on guessing from the timing:</p>
   <div class="tw"><table>
-    <tr><th>result</th><th>meaning</th></tr>
+    <tr class="th-row"><th>result</th><th>meaning</th></tr>
     <tr><td><span class="pill ok">Connected</span></td><td>The connection went through.</td></tr>
     <tr><td><span class="pill bad">Stopped by this module</span></td><td>Refused at once (Refuse setting) or dropped (Drop setting) by one of the module's rules. It says whether the outgoing or the incoming rule did it.</td></tr>
     <tr><td><span class="pill warn">Refused elsewhere</span></td><td>Refused, but not by this module - usually nothing listens on that port there. Try 443 or 80.</td></tr>
@@ -313,7 +347,7 @@
   <p>Create a set with a name (letters, digits, underscore, up to 31 characters), a type and a family. <code>hash:net</code> holds addresses and networks; <code>hash:ip,port</code> holds entries like <code>1.2.3.4,tcp:443</code>; <code>hash:net,iface</code> holds <code>10.0.0.0/8,wlan0</code>. Tap a set to see, add and remove its members. The kernel decides which types it supports.</p>
   <h3>Rules</h3>
   <div class="tw"><table>
-    <tr><th>field</th><th>choices</th></tr>
+    <tr class="th-row"><th>field</th><th>choices</th></tr>
     <tr><td>Traffic</td><td>Outgoing, Incoming, or Hotspot (devices using this phone's hotspot or USB tethering).</td></tr>
     <tr><td>Match</td><td><code>dst</code> = where the packet goes, <code>src</code> = where it comes from. Outgoing traffic is usually matched by <code>dst</code>, incoming by <code>src</code>; the form switches for you. Two-dimensional sets such as <code>hash:ip,port</code> use <code>dst,dst</code>.</td></tr>
     <tr><td>Action</td><td><code>DROP</code> and <code>REJECT</code> stop the packet; <code>ACCEPT</code> lets it through past every list; <code>RETURN</code> means "no decision here" and the packet goes on to the lists.</td></tr>
@@ -330,7 +364,7 @@
   <p>Whether the IPv4 and IPv6 rules are active (and why not, if not), whether they are linked into Android's chains, the watchdog and its repairs, and which lists are in the kernel.</p>
   <h3>Settings</h3>
   <div class="tw"><table>
-    <tr><th>setting</th><th>effect</th></tr>
+    <tr class="th-row"><th>setting</th><th>effect</th></tr>
     <tr><td>Filter IPv6</td><td>Apply the lists to IPv6 as well. On by default.</td></tr>
     <tr><td>Filter hotspot clients</td><td>Apply the lists (their outgoing direction) to devices using this phone's hotspot or USB tethering. Off by default.</td></tr>
     <tr><td>Protect DNSCrypt resolvers</td><td>Never block the addresses the DNSCrypt module uses - see section 15. On by default.</td></tr>
@@ -345,7 +379,7 @@
 <div class="sec-title" id="log">12 · log</div>
 <div class="box">
   <div class="tw"><table>
-    <tr><th>log</th><th>shows</th></tr>
+    <tr class="th-row"><th>log</th><th>shows</th></tr>
     <tr><td>Module log</td><td>Everything the module did: applies, repairs, list loads, your changes, errors. Filter by level; <strong>clear</strong> empties it. Trimmed automatically to the last 1,500 lines (setting LOG_KEEP_LINES).</td></tr>
     <tr><td>Last boot</td><td>What happened during the last boot, step by step.</td></tr>
     <tr><td>Last update</td><td>The output of the last list download.</td></tr>
@@ -358,7 +392,7 @@
 <div class="box">
   <p>Your data lives in <code>/data/adb/ipset_arm64_data/</code>, outside the module, and is kept across updates:</p>
   <div class="tw"><table>
-    <tr><th>file</th><th>holds</th></tr>
+    <tr class="th-row"><th>file</th><th>holds</th></tr>
     <tr><td>settings.conf</td><td>All settings (below). Hand edits are applied within 10 seconds.</td></tr>
     <tr><td>ip-blocklist.txt</td><td>Your blocklist (mirrored to /sdcard/ipset-arm64/).</td></tr>
     <tr><td>ip-allowlist.txt</td><td>Your allowlist (mirrored to /sdcard/ipset-arm64/).</td></tr>
@@ -369,7 +403,7 @@
   </table></div>
   <h3>settings.conf</h3>
   <div class="tw"><table>
-    <tr><th>key</th><th>values</th></tr>
+    <tr class="th-row"><th>key</th><th>values</th></tr>
     <tr><td>ENABLED</td><td><code>1</code> / <code>0</code> - the Protection switch</td></tr>
     <tr><td>SOURCES</td><td>selected lists, comma separated, or <code>none</code></td></tr>
     <tr><td>DIRECTIONS</td><td><code>list:out</code>, <code>list:in</code> or <code>list:both</code>, comma separated; <code>user</code> is your own blocklist. A list not named here blocks both.</td></tr>
@@ -388,19 +422,20 @@
 <div class="sec-title" id="cli">14 · command line</div>
 <div class="box">
   <p>Everything the WebUI does is also available from Termux. Output is <code>key=value</code>; every command that changes something prints <code>ok=1</code>, or <code>ok=0</code> with an <code>error=</code>.</p>
-<pre><span class="cm"># the module's own protection</span>
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh status'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh check 103.117.84.5'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh probe 103.117.84.5 443'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh block add 203.0.113.0/24'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh allow add 198.51.100.7'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources enable firehol-level2'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh sources dir firehol-level4 in'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh update'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh pause 15'</pre>
+<div class="code-block"><div class="code-header"><span class="code-label">The module's own protection</span><div class="code-header-right"><div class="code-dots"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></div></div></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">status</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">check 103.117.84.5</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">probe 103.117.84.5 443</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">block add 203.0.113.0/<wbr>24</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">allow add 198.51.100.7</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">sources</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">sources enable firehol-level2</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">sources dir firehol-level4 in</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">update</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ctl.sh <span class="sub">pause 15</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+</div>
   <div class="tw"><table>
-    <tr><th>ctl.sh</th><th></th></tr>
+    <tr class="th-row"><th>ctl.sh</th><th></th></tr>
     <tr><td>poll · status</td><td>quick state · full check</td></tr>
     <tr><td>enable · disable</td><td>the Protection switch</td></tr>
     <tr><td>pause &lt;min&gt; · resume</td><td>pause for 1 – 1440 minutes</td></tr>
@@ -412,11 +447,13 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ctl.sh pause 15'</pre>
     <tr><td>apply · log [n] · log-clear</td><td>re-apply · show / clear the log</td></tr>
   </table></div>
   <p>The advanced sets and rules have their own tool, compatible with earlier versions:</p>
-<pre>su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh create myset hash:net'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh add myset 203.0.113.0/24'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-add myset OUTPUT dst REJECT'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rules'
-su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTPUT dst REJECT'</pre>
+<div class="code-block"><div class="code-header"><span class="code-label">Advanced sets and rules (ipctl.sh)</span><div class="code-header-right"><div class="code-dots"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></div></div></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ipctl.sh <span class="sub">create myset hash:net</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ipctl.sh <span class="sub">add myset 203.0.113.0/<wbr>24</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ipctl.sh <span class="sub">rule-add myset OUTPUT dst REJECT</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ipctl.sh <span class="sub">rules</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su -c '/<wbr>system/<wbr>bin/<wbr>sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr>ipset_arm64/<wbr>ipctl.sh <span class="sub">rule-del myset OUTPUT dst REJECT</span>'</pre></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+</div>
 </div>
 
 <!-- 15 -->
@@ -471,10 +508,53 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTP
 
 <div class="footer">
   ipset-arm64 · by Tears Burn<br>
-  <a href="https://github.com/nikakvo/ipset-arm64" target="_blank">github.com/nikakvo/ipset-arm64</a>
+  <a href="#" data-ext="https://github.com/nikakvo/ipset_arm64/">github.com/nikakvo/ipset_arm64</a>
 </div>
 
+<button class="to-top" id="toTop" type="button" onclick="toTop()" aria-label="Back to top"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
 <script>
+  // Outside sites open in the phone's browser. The root manager would load a
+  // link in this WebView, where the site's scripts could reach ksu.exec.
+  var _extSeq = 0, _extToastT = null;
+  function extToast(msg) {
+    var t = document.getElementById('ext-toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'ext-toast';
+      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:88%;z-index:99;' +
+        'background:#1a0808;border:1px solid #ff4455;color:#ffd6da;font:12px/1.4 var(--mono,monospace);' +
+        'padding:8px 12px;border-radius:3px;text-align:center';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(_extToastT); _extToastT = setTimeout(function () { t.style.display = 'none'; }, 3200);
+  }
+  function openExt(url) {
+    if (!/^https:\/\/[a-z0-9.-]+\/[a-z0-9._\/-]*$/i.test(url)) { extToast('Not opened: not an https address'); return; }
+    if (typeof ksu === 'undefined' || !ksu || typeof ksu.exec !== 'function') { extToast('Could not open the browser: no root bridge'); return; }
+    var cmd = "am start -a android.intent.action.VIEW -d '" + url + "' 2>&1";
+    var check = function (errno, out) {
+      var err = String(out || '').split('\n').filter(function (l) { return /^Error/.test(l); })[0];
+      if (errno !== 0 || err) extToast('Could not open the browser: ' + (err || 'am start ended with ' + errno));
+    };
+    var name = '__ext_cb_' + (++_extSeq) + '_' + Date.now();
+    window[name] = function (errno, stdout, stderr) {
+      try { delete window[name]; } catch (e) { window[name] = undefined; }
+      check(typeof errno === 'number' ? errno : 0, String(stdout || '') + String(stderr || ''));
+    };
+    try { ksu.exec(cmd, '{}', name); }
+    catch (e) {
+      try { delete window[name]; } catch (_) {}
+      try { var r = ksu.exec(cmd); check(0, typeof r === 'string' ? r : (r && r.stdout) || ''); }
+      catch (e2) { extToast('Could not open the browser: ' + String((e2 && e2.message) || e2)); }
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-ext]');
+    if (!a) return;
+    e.preventDefault();
+    openExt(a.getAttribute('data-ext'));
+  });
+
   function goBack() {
     // history.back() is right when the user came from index.html. Some
     // managers open a webroot file directly with no history to go back to,
@@ -488,6 +568,47 @@ su -c '/system/bin/sh /data/adb/modules/ipset_arm64/ipctl.sh rule-del myset OUTP
       window.location.href = 'index.html';
     }
   }
+
+  // ── Copy a command (comments are not copied) ──
+  var ICON_COPY = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY';
+  function codeText(pre) {
+    var c = pre.cloneNode(true);
+    c.querySelectorAll('.cm').forEach(function (n) { n.remove(); });
+    return c.textContent.replace(/\s+$/, '').replace(/^\s+/, '');
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.top = '-1000px';
+    document.body.appendChild(ta); ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function copyCode(btn) {
+    var box = btn.closest('.cmd-row') || btn.closest('.code-block');
+    var text = codeText(box.querySelector('pre'));
+    function done(ok) {
+      btn.classList.add(ok ? 'copied' : 'failed');
+      btn.textContent = ok ? 'COPIED' : 'FAILED';
+      setTimeout(function () { btn.classList.remove('copied', 'failed'); btn.innerHTML = ICON_COPY; }, 1600);
+    }
+    // The WebView of some root managers has no navigator.clipboard, or rejects it.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+    } else {
+      done(fallbackCopy(text));
+    }
+  }
+  // ── Back to top ──
+  function toTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  (function () {
+    var b = document.getElementById('toTop');
+    function upd() { b.classList.toggle('show', (window.scrollY || document.documentElement.scrollTop) > 400); }
+    window.addEventListener('scroll', upd, { passive: true });
+    upd();
+  })();
 </script>
 </body>
 </html>

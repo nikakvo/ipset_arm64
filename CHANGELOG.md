@@ -2,6 +2,17 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r16
+
+The WebUI loads nothing from the internet, and Help reads better on the phone.
+
+* **The WebUI and Help load nothing from the internet** - the Google web font is gone (it sent a request to Google on every open); the text uses the phone's own monospace font
+* **The link at the bottom of Help opens in your browser** instead of inside the WebUI, where a site could reach the root manager's bridge (it runs commands as root). It points to the repository's current name, `nikakvo/ipset_arm64`
+* **Help reads better on the phone** - table rows are stacked (the name on top, its text under it at full width, no more sideways scrolling), every example command sits in a box with its own **COPY** button (only that one command is copied, never its comment), and an arrow at the bottom right jumps back to the top
+* The module's scripts are unchanged
+
+---
+
 ## v7.24-r15
 
 Lighter, and safe with WG Shield.
