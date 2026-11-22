@@ -2,6 +2,15 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r18
+
+Help: the right title on the command box.
+
+* **Help section 14 (command line)** - the first command box is titled "Module commands (ctl.sh)", matching the commands in it (status, check, probe, block, allow, sources, update, pause); it carried an old title before
+* The module's scripts are unchanged
+
+---
+
 ## v7.24-r17
 
 One phone Back leaves Help.
