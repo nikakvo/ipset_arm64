@@ -2,6 +2,15 @@
 
 All notable changes to this module are documented here.
 
+## v7.24-r17
+
+One phone Back leaves Help.
+
+* **One phone Back leaves Help** - the contents and the links to other sections no longer add steps to the phone's Back, however many sections you opened
+* The module's scripts are unchanged
+
+---
+
 ## v7.24-r16
 
 The WebUI loads nothing from the internet, and Help reads better on the phone.
